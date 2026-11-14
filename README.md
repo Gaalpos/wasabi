@@ -79,6 +79,8 @@ app/src/main/java/app/wasabi/
   ui/GameScreen.kt       achievement list
 ```
 
+Website: https://wasabi.gaalpos.dev (GitHub Pages, served from `docs/`).
+
 It uses Kotlin and Jetpack Compose. JSON is parsed with the built-in
 `org.json` and images load with Coil. API reference:
 https://api-docs.retroachievements.org
