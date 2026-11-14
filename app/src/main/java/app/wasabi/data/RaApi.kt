@@ -1,4 +1,4 @@
-package app.cheevos.data
+package app.wasabi.data
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
@@ -150,7 +150,7 @@ class RaApi(val user: String, private val key: String) {
             val conn = URL("$BASE/$endpoint?$query").openConnection() as HttpURLConnection
             conn.connectTimeout = 10_000
             conn.readTimeout = 20_000
-            conn.setRequestProperty("User-Agent", "Cheevos/1.0 (Android)")
+            conn.setRequestProperty("User-Agent", "Wasabi/1.0 (Android)")
             conn.setRequestProperty("Accept", "application/json")
             try {
                 val code = conn.responseCode
@@ -195,7 +195,7 @@ private fun JSONArray.objects(): List<JSONObject> = (0 until length()).mapNotNul
 
 /** Saves the username and Web API key on the device (app-private, no backup). */
 class Prefs(context: Context) {
-    private val sp = context.getSharedPreferences("cheevos", Context.MODE_PRIVATE)
+    private val sp = context.getSharedPreferences("wasabi", Context.MODE_PRIVATE)
     val user: String? get() = sp.getString("user", null)
     val key: String? get() = sp.getString("key", null)
     fun save(user: String, key: String) = sp.edit().putString("user", user).putString("key", key).apply()

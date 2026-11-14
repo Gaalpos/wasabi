@@ -13,7 +13,7 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Cheevos">
+        android:theme="@style/Theme.Wasabi">
 
         <!-- keyboard|navigation: don't recreate the screen when the
              controller mode toggles or a pad connects/disconnects. -->

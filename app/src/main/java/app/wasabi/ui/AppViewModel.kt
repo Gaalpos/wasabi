@@ -1,20 +1,20 @@
-package app.cheevos.ui
+package app.wasabi.ui
 
 import android.app.Application
-import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import app.cheevos.data.GameDetail
-import app.cheevos.data.LibraryGame
-import app.cheevos.data.Prefs
-import app.cheevos.data.Profile
-import app.cheevos.data.RaApi
-import app.cheevos.data.RecentGame
-import app.cheevos.data.Unlock
+import app.wasabi.data.GameDetail
+import app.wasabi.data.LibraryGame
+import app.wasabi.data.Prefs
+import app.wasabi.data.Profile
+import app.wasabi.data.RaApi
+import app.wasabi.data.RecentGame
+import app.wasabi.data.Unlock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -55,13 +55,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var library by mutableStateOf<Load<List<LibraryGame>>?>(null); private set
     var unlocks by mutableStateOf<Load<List<Unlock>>?>(null); private set
     var librarySort by mutableStateOf(LibrarySort.Recent); private set
-    private val listStates = HomeTab.entries.associateWith { LazyListState() }
+    private val listStates = HomeTab.entries.associateWith { LazyGridState() }
     fun listState(t: HomeTab) = listStates.getValue(t)
 
     // Game
     var game by mutableStateOf<Load<GameDetail>?>(null); private set
     var achFilter by mutableStateOf(AchFilter.All); private set
-    val gameListState = LazyListState()
+    val gameListState = LazyGridState()
 
     // D-pad focus: the key of the row that should grab focus next, and the
     // last focused row per list, so going back lands where you left off.

@@ -1,4 +1,4 @@
-package app.cheevos
+package app.wasabi
 
 import android.os.Bundle
 import android.view.KeyEvent
@@ -12,20 +12,20 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import app.cheevos.ui.AppViewModel
-import app.cheevos.ui.CheevosTheme
-import app.cheevos.ui.GameScreen
-import app.cheevos.ui.HomeScreen
-import app.cheevos.ui.LoginScreen
-import app.cheevos.ui.Palette
-import app.cheevos.ui.Screen
+import app.wasabi.ui.AppViewModel
+import app.wasabi.ui.WasabiTheme
+import app.wasabi.ui.GameScreen
+import app.wasabi.ui.HomeScreen
+import app.wasabi.ui.LoginScreen
+import app.wasabi.ui.Palette
+import app.wasabi.ui.Screen
 
 class MainActivity : ComponentActivity() {
     private val vm: AppViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { CheevosTheme { App(vm) } }
+        setContent { WasabiTheme { App(vm) } }
     }
 
     /**

@@ -1,9 +1,10 @@
-package app.cheevos.ui
+package app.wasabi.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,8 +13,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,51 +29,64 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.cheevos.data.GameProgress
-import app.cheevos.data.Profile
+import app.wasabi.data.GameProgress
+import app.wasabi.data.Profile
+
+/** Below this width the layout is the single-column handheld/phone layout. */
+val WideWidth = 600.dp
 
 @Composable
 fun HomeScreen(vm: AppViewModel) {
-    Column(Modifier.fillMaxSize()) {
-        ProfileBar(vm.profile)
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            HomeTab.entries.forEach { t ->
-                Pill(t.label, onClick = { vm.selectTab(t) }, selected = vm.tab == t)
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth >= WideWidth
+        Column(Modifier.fillMaxSize()) {
+            if (wide) {
+                // 16:9 / 4:3 landscape: profile and tabs share one row to save height.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ProfileBar(vm.profile, Modifier.weight(1f))
+                    Tabs(vm, Modifier.padding(end = 10.dp))
+                }
+            } else {
+                ProfileBar(vm.profile)
+                Tabs(vm, Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp))
             }
-        }
-        Box(Modifier.weight(1f)) {
+            Box(Modifier.weight(1f).padding(top = 4.dp)) {
+                when (vm.tab) {
+                    HomeTab.Playing -> PlayingTab(vm)
+                    HomeTab.Library -> LibraryTab(vm)
+                    HomeTab.Unlocks -> UnlocksTab(vm)
+                    HomeTab.Profile -> ProfileTab(vm, wide)
+                }
+            }
             when (vm.tab) {
-                HomeTab.Playing -> PlayingTab(vm)
-                HomeTab.Library -> LibraryTab(vm)
-                HomeTab.Unlocks -> UnlocksTab(vm)
-                HomeTab.Profile -> ProfileTab(vm)
+                HomeTab.Library -> HintBar("A" to "Open", "Y" to "Sort", "X" to "Refresh", "L1/R1" to "Tabs")
+                HomeTab.Profile -> HintBar("X" to "Refresh", "L1/R1" to "Tabs")
+                else -> HintBar("A" to "Open", "X" to "Refresh", "L1/R1" to "Tabs")
             }
-        }
-        if (vm.tab == HomeTab.Library) {
-            HintBar("A" to "Open", "Y" to "Sort", "X" to "Refresh", "L1/R1" to "Tabs")
-        } else if (vm.tab == HomeTab.Profile) {
-            HintBar("X" to "Refresh", "L1/R1" to "Tabs")
-        } else {
-            HintBar("A" to "Open", "X" to "Refresh", "L1/R1" to "Tabs")
         }
     }
 }
 
 @Composable
-private fun ProfileBar(state: Load<Profile>) {
+private fun Tabs(vm: AppViewModel, modifier: Modifier = Modifier) {
+    Row(modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        HomeTab.entries.forEach { t ->
+            Pill(t.label, onClick = { vm.selectTab(t) }, selected = vm.tab == t)
+        }
+    }
+}
+
+@Composable
+private fun ProfileBar(state: Load<Profile>, modifier: Modifier = Modifier) {
     val p = (state as? Load.Ok)?.data
     Row(
-        Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 2.dp),
+        modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -93,21 +112,35 @@ private fun ProfileBar(state: Load<Profile>) {
     }
 }
 
-private val listPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+/**
+ * A list that becomes a grid on wide screens: one column on the Pocket
+ * Classic or a phone, two or more on 16:9 and 4:3 landscape.
+ */
+@Composable
+fun CardGrid(state: LazyGridState, modifier: Modifier = Modifier, content: LazyGridScope.() -> Unit) {
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(300.dp),
+        state = state,
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        content = content,
+    )
+}
+
+fun LazyGridScope.fullWidthItem(key: Any, content: @Composable () -> Unit) =
+    item(key = key, span = { GridItemSpan(maxLineSpan) }) { content() }
 
 @Composable
 private fun PlayingTab(vm: AppViewModel) {
     when (val s = vm.recent) {
         null, Load.Loading -> LoadingView()
         is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
-        is Load.Ok -> if (s.data.isEmpty()) EmptyView("No games played yet.") else LazyColumn(
-            state = vm.listState(HomeTab.Playing),
-            contentPadding = listPadding,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
+        is Load.Ok -> if (s.data.isEmpty()) EmptyView("No games played yet.") else CardGrid(vm.listState(HomeTab.Playing)) {
             items(s.data, key = { it.id }) { g ->
                 GameRow(
-                    vm, "g:${g.id}", g.title, g.console, g.iconUrl, g, award = null,
+                    vm, "g:${g.id}", g.title, g.iconUrl, g, award = null,
                     sub = if (g.lastPlayed != null) "${g.console} · ${ago(g.lastPlayed)}" else g.console,
                 ) { vm.openGame(g.id, g.title) }
             }
@@ -122,12 +155,8 @@ private fun LibraryTab(vm: AppViewModel) {
         is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
         is Load.Ok -> {
             val games = vm.sortedLibrary()
-            if (games.isEmpty()) EmptyView("Unlock an achievement and your games show up here.") else LazyColumn(
-                state = vm.listState(HomeTab.Library),
-                contentPadding = listPadding,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                item(key = "sort") {
+            if (games.isEmpty()) EmptyView("Unlock an achievement and your games show up here.") else CardGrid(vm.listState(HomeTab.Library)) {
+                fullWidthItem("sort") {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Pill("Sort: ${vm.librarySort.label}", onClick = { vm.option() })
                         Spacer(Modifier.weight(1f))
@@ -139,10 +168,9 @@ private fun LibraryTab(vm: AppViewModel) {
                     }
                 }
                 items(games, key = { it.id }) { g ->
-                    GameRow(
-                        vm, "g:${g.id}", g.title, g.console, g.iconUrl, g, g.award,
-                        sub = g.console,
-                    ) { vm.openGame(g.id, g.title) }
+                    GameRow(vm, "g:${g.id}", g.title, g.iconUrl, g, g.award, sub = g.console) {
+                        vm.openGame(g.id, g.title)
+                    }
                 }
             }
         }
@@ -154,11 +182,10 @@ private fun GameRow(
     vm: AppViewModel,
     key: String,
     title: String,
-    console: String,
     icon: String?,
     progress: GameProgress,
     award: String?,
-    sub: String = console,
+    sub: String,
     onClick: () -> Unit,
 ) {
     FocusRow(key, vm, onClick = onClick) {
@@ -196,11 +223,7 @@ private fun UnlocksTab(vm: AppViewModel) {
     when (val s = vm.unlocks) {
         null, Load.Loading -> LoadingView()
         is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
-        is Load.Ok -> if (s.data.isEmpty()) EmptyView("Nothing unlocked in the last 30 days.") else LazyColumn(
-            state = vm.listState(HomeTab.Unlocks),
-            contentPadding = listPadding,
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
+        is Load.Ok -> if (s.data.isEmpty()) EmptyView("Nothing unlocked in the last 30 days.") else CardGrid(vm.listState(HomeTab.Unlocks)) {
             items(s.data, key = { "${it.achievementId}:${it.date}" }) { u ->
                 FocusRow("u:${u.achievementId}:${u.date}", vm, onClick = { vm.openGame(u.gameId, u.gameTitle) }) {
                     Thumb(u.badgeUrl, 44.dp)
@@ -232,42 +255,76 @@ private fun UnlocksTab(vm: AppViewModel) {
 }
 
 @Composable
-private fun ProfileTab(vm: AppViewModel) {
+private fun ProfileTab(vm: AppViewModel, wide: Boolean) {
     when (val s = vm.profile) {
         Load.Loading -> LoadingView()
         is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
         is Load.Ok -> {
             val p = s.data
-            Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Thumb(p.avatarUrl, 72.dp, shape = CircleShape)
-                Text(p.user, color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                p.motto?.let { Text("“$it”", color = Palette.Dim, fontSize = 13.sp) }
-                Spacer(Modifier.height(4.dp))
-                Stat("Hardcore points", num(p.points), Palette.Accent)
-                Stat("Softcore points", num(p.softPoints), Palette.Soft)
-                Stat("RetroPoints", num(p.truePoints), Palette.Text)
-                p.memberSince?.let { Stat("Member since", fullDate(it), Palette.Text) }
-                p.richPresence?.let {
+            if (wide) {
+                // Landscape: identity on the left, numbers on the right.
+                Row(
+                    Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp),
+                ) {
                     Column(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Palette.Surface).padding(10.dp),
-                    ) {
-                        Text("Last seen", color = Palette.Dim, fontSize = 11.sp)
-                        Text(it, color = Palette.Text, fontSize = 13.sp)
-                    }
+                        Modifier.weight(0.8f).fillMaxSize().verticalScroll(rememberScrollState()),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+                    ) { Identity(vm, p) }
+                    Column(
+                        Modifier.weight(1f).fillMaxSize().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+                    ) { Stats(p) }
                 }
-                Spacer(Modifier.height(8.dp))
-                Pill("Sign out", onClick = { vm.signOut() }, focusKey = "signout", vm = vm)
+            } else {
+                Column(
+                    Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Identity(vm, p, showSignOut = false)
+                    Spacer(Modifier.height(4.dp))
+                    Stats(p)
+                    Spacer(Modifier.height(8.dp))
+                    Pill("Sign out", onClick = { vm.signOut() }, focusKey = "signout", vm = vm)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun Stat(label: String, value: String, color: androidx.compose.ui.graphics.Color) {
+private fun Identity(vm: AppViewModel, p: Profile, showSignOut: Boolean = true) {
+    Thumb(p.avatarUrl, 72.dp, shape = CircleShape)
+    Text(p.user, color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+    p.motto?.let { Text("“$it”", color = Palette.Dim, fontSize = 13.sp, textAlign = TextAlign.Center) }
+    if (showSignOut) {
+        Spacer(Modifier.height(4.dp))
+        Pill("Sign out", onClick = { vm.signOut() }, focusKey = "signout", vm = vm)
+    }
+}
+
+@Composable
+private fun Stats(p: Profile) {
+    Column(Modifier.widthIn(max = 520.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Stat("Hardcore points", num(p.points), Palette.Accent)
+        Stat("Softcore points", num(p.softPoints), Palette.Soft)
+        Stat("RetroPoints", num(p.truePoints), Palette.Text)
+        p.memberSince?.let { Stat("Member since", fullDate(it), Palette.Text) }
+        p.richPresence?.let {
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Palette.Surface).padding(10.dp),
+            ) {
+                Text("Last seen", color = Palette.Dim, fontSize = 11.sp)
+                Text(it, color = Palette.Text, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Stat(label: String, value: String, color: Color) {
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Palette.Surface)
             .padding(horizontal = 12.dp, vertical = 10.dp),

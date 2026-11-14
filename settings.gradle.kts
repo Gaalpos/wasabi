@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Cheevos"
+rootProject.name = "Wasabi"
 include(":app")

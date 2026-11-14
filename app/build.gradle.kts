@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "app.cheevos"
+    namespace = "app.wasabi"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "app.cheevos"
+        applicationId = "app.wasabi"
         minSdk = 26          // Retroid Pocket Classic ships Android 14 (API 34)
         targetSdk = 36
         versionCode = 1

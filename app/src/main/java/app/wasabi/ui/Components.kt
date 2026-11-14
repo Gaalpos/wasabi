@@ -1,4 +1,4 @@
-package app.cheevos.ui
+package app.wasabi.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -57,7 +57,7 @@ object Palette {
     val Surface = Color(0xFF141418)
     val SurfaceHi = Color(0xFF26262E)
     val Track = Color(0xFF2E2E36)
-    val Accent = Color(0xFFF5B700)      // hardcore / gold
+    val Accent = Color(0xFF9DC93B)      // wasabi green: hardcore, focus
     val Soft = Color(0xFFAFC0D8)        // softcore / silver
     val Text = Color(0xFFF2F2F5)
     val Dim = Color(0xFF9C9CA8)
@@ -66,7 +66,7 @@ object Palette {
 }
 
 @Composable
-fun CheevosTheme(content: @Composable () -> Unit) {
+fun WasabiTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = Palette.Accent,
@@ -86,7 +86,7 @@ fun CheevosTheme(content: @Composable () -> Unit) {
 
 /**
  * A list row that works with the D-pad: it is always focusable (so the list
- * can scroll with the pad), shows a gold outline when focused, and grabs
+ * can scroll with the pad), shows a wasabi-green outline when focused, and grabs
  * focus when the view model asks for [focusKey].
  */
 @Composable

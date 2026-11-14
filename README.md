@@ -1,9 +1,10 @@
-# Cheevos
+# Wasabi
 
 A small Android app for checking your RetroAchievements progress on a
-handheld. It's built for the Retroid Pocket Classic: a dark AMOLED theme,
-a compact layout for the small, nearly square screen, and controls that work
-with the built-in buttons as well as touch.
+handheld. It's built for the Retroid Pocket Classic but fits other screen
+shapes too: one column on near-square screens, and a grid with a side panel
+on 4:3 and 16:9 landscape. It uses a true-black AMOLED theme and works with
+the built-in buttons as well as touch.
 
 ## What it shows
 
@@ -19,7 +20,7 @@ locked ones grayed out, unlock dates, how many players have each one, and
 missable/progression tags. You can filter the list to show all, locked or
 unlocked achievements.
 
-Gold means hardcore and silver means softcore.
+Wasabi green means hardcore and silver means softcore.
 
 ## Controls
 
@@ -67,7 +68,7 @@ debug key, so it installs without setting up a keystore.
 ## Project layout
 
 ```
-app/src/main/java/app/cheevos/
+app/src/main/java/app/wasabi/
   MainActivity.kt        entry point, shoulder/face button handling
   data/RaApi.kt          RetroAchievements Web API client, saved login
   data/Models.kt         data classes

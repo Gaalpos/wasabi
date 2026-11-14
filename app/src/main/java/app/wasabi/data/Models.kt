@@ -1,4 +1,4 @@
-package app.cheevos.data
+package app.wasabi.data
 
 const val MEDIA = "https://media.retroachievements.org"
 

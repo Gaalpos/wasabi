@@ -1,17 +1,19 @@
-package app.cheevos.ui
+package app.wasabi.ui
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,18 +22,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.cheevos.data.Achievement
-import app.cheevos.data.GameDetail
+import app.wasabi.data.Achievement
+import app.wasabi.data.GameDetail
 import java.util.Locale
 
 @Composable
 fun GameScreen(vm: AppViewModel, screen: Screen.Game) {
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f)) {
+        BoxWithConstraints(Modifier.weight(1f)) {
+            // Landscape 16:9 / 4:3: game info in a side panel, achievements beside it.
+            val sidePanel = maxWidth >= WideWidth && maxWidth > maxHeight
             when (val s = vm.game) {
                 null, Load.Loading -> LoadingView()
                 is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
-                is Load.Ok -> GameContent(vm, s.data)
+                is Load.Ok -> if (sidePanel) {
+                    Row(Modifier.fillMaxSize()) {
+                        Column(
+                            Modifier.width(260.dp).fillMaxHeight().verticalScroll(rememberScrollState())
+                                .padding(start = 14.dp, top = 10.dp, end = 4.dp, bottom = 10.dp),
+                        ) { GameHeader(vm, s.data, stacked = true) }
+                        AchievementGrid(vm, s.data, withHeader = false, modifier = Modifier.weight(1f))
+                    }
+                } else {
+                    AchievementGrid(vm, s.data, withHeader = true)
+                }
             }
         }
         HintBar("B" to "Back", "Y" to "Filter", "X" to "Refresh")
@@ -39,18 +53,14 @@ fun GameScreen(vm: AppViewModel, screen: Screen.Game) {
 }
 
 @Composable
-private fun GameContent(vm: AppViewModel, g: GameDetail) {
+private fun AchievementGrid(vm: AppViewModel, g: GameDetail, withHeader: Boolean, modifier: Modifier = Modifier) {
     val list = vm.filteredAchievements()
-    LazyColumn(
-        state = vm.gameListState,
-        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        item(key = "header") { GameHeader(vm, g) }
+    CardGrid(vm.gameListState, modifier) {
+        if (withHeader) fullWidthItem("header") { GameHeader(vm, g, stacked = false) }
         if (g.achievements.isEmpty()) {
-            item(key = "none") { EmptyView("This game has no achievements yet.") }
+            fullWidthItem("none") { EmptyView("This game has no achievements yet.") }
         } else if (list.isEmpty()) {
-            item(key = "none") {
+            fullWidthItem("none") {
                 EmptyView(if (vm.achFilter == AchFilter.Locked) "All unlocked. Nice!" else "Nothing unlocked yet.")
             }
         }
@@ -59,9 +69,20 @@ private fun GameContent(vm: AppViewModel, g: GameDetail) {
 }
 
 @Composable
-private fun GameHeader(vm: AppViewModel, g: GameDetail) {
+private fun GameHeader(vm: AppViewModel, g: GameDetail, stacked: Boolean) {
     Column(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (stacked) {
+            Thumb(g.iconUrl, 72.dp)
+            Column {
+                Text(
+                    g.title, color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                    maxLines = 3, overflow = TextOverflow.Ellipsis,
+                )
+                Text(g.console, color = Palette.Dim, fontSize = 12.sp)
+                if (g.players > 0) Text("${num(g.players)} players", color = Palette.Faint, fontSize = 11.sp)
+            }
+            AwardTag(g.award)
+        } else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Thumb(g.iconUrl, 64.dp)
             Column(Modifier.weight(1f)) {
                 Text(
