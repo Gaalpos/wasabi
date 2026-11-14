@@ -1,1 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="24 24 60 60"><rect x="24" y="24" width="60" height="60" rx="14" fill="#17171C"/><path d="M38,36 H31 C29.5,36 29,37 29,38.5 C29,46 33,51 40,52 M70,36 H77 C78.5,36 79,37 79,38.5 C79,46 75,51 68,52" fill="none" stroke="#9DC93B" stroke-width="4" stroke-linecap="round"/><path fill="#9DC93B" d="M36,30 H72 V45 C72,56 64,63 54,63 C44,63 36,56 36,45 Z M50,62 H58 V71 H50 Z M41,72 H67 C68.1,72 69,72.9 69,74 V78 H39 V74 C39,72.9 39.9,72 41,72 Z"/><path fill="#17171C" d="M54,36.5 L56.3,41.3 L61.5,41.9 L57.6,45.4 L58.7,50.5 L54,47.9 L49.3,50.5 L50.4,45.4 L46.5,41.9 L51.7,41.3 Z"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="35%" r="75%"><stop offset="0" stop-color="#1C2412"/><stop offset="1" stop-color="#080A06"/></radialGradient>
+    <linearGradient id="ring" x1="26" y1="22" x2="82" y2="86" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#D4F57A"/><stop offset=".5" stop-color="#9DC93B"/><stop offset="1" stop-color="#4F7A12"/></linearGradient>
+    <linearGradient id="w" x1="54" y1="44" x2="54" y2="67" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#D4F57A"/><stop offset="1" stop-color="#7DAA22"/></linearGradient>
+  </defs>
+  <rect x="18" y="18" width="72" height="72" rx="16" fill="url(#bg)"/>
+  <path d="M54,22 L82,38 V70 L54,86 L26,70 V38 Z" fill="#10150B" stroke="url(#ring)" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M38,44 L46,67 L54,52 L62,67 L70,44" fill="none" stroke="url(#w)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M75,25 C75.7,30 77,31.3 82,32 C77,32.7 75.7,34 75,39 C74.3,34 73,32.7 68,32 C73,31.3 74.3,30 75,25 Z" fill="#F2FFD0" stroke="#080A06" stroke-width="3" stroke-linejoin="round" paint-order="stroke"/>
+</svg>
