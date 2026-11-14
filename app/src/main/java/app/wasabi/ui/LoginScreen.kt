@@ -53,6 +53,7 @@ fun LoginScreen(vm: AppViewModel) {
 
     BoxWithConstraints(Modifier.fillMaxSize().imePadding()) {
         val landscape = maxWidth > maxHeight && maxHeight < 560.dp
+        val brandIcon = if (maxHeight < 360.dp) 56.dp else 80.dp
         if (landscape) {
             // 16:9 / 4:3 landscape: branding on the left, form on the right.
             Row(
@@ -64,7 +65,7 @@ fun LoginScreen(vm: AppViewModel) {
                     Modifier.weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) { Branding(iconSize = if (maxHeight < 360.dp) 56.dp else 80.dp) }
+                ) { Branding(iconSize = brandIcon) }
                 Column(
                     Modifier.weight(1f).widthIn(max = 420.dp).verticalScroll(rememberScrollState()).padding(vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
