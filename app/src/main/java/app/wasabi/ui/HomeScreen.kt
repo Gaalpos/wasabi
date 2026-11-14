@@ -59,6 +59,7 @@ fun HomeScreen(vm: AppViewModel) {
             Box(Modifier.weight(1f).padding(top = 4.dp)) {
                 when (vm.tab) {
                     HomeTab.Playing -> PlayingTab(vm)
+                    HomeTab.WantToPlay -> WantToPlayTab(vm)
                     HomeTab.Library -> LibraryTab(vm)
                     HomeTab.Unlocks -> UnlocksTab(vm)
                     HomeTab.Profile -> ProfileTab(vm, wide)
@@ -143,6 +144,43 @@ private fun PlayingTab(vm: AppViewModel) {
                     vm, "g:${g.id}", g.title, g.iconUrl, g, award = null,
                     sub = if (g.lastPlayed != null) "${g.console} · ${ago(g.lastPlayed)}" else g.console,
                 ) { vm.openGame(g.id, g.title) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WantToPlayTab(vm: AppViewModel) {
+    when (val s = vm.wantToPlay) {
+        null, Load.Loading -> LoadingView()
+        is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
+        is Load.Ok -> if (s.data.isEmpty()) {
+            EmptyView("Your Want to Play list is empty. Add games to it on retroachievements.org and they show up here.")
+        } else CardGrid(vm.listState(HomeTab.WantToPlay)) {
+            fullWidthItem("count") {
+                Text(
+                    "${num(s.data.size)} games on your list",
+                    color = Palette.Dim, fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 2.dp, top = 2.dp, bottom = 2.dp),
+                )
+            }
+            items(s.data, key = { it.id }) { g ->
+                FocusRow("w:${g.id}", vm, onClick = { vm.openGame(g.id, g.title) }) {
+                    Thumb(g.iconUrl, 44.dp)
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            g.title,
+                            color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(g.console, color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            if (g.achievements > 0) "${num(g.achievements)} achievements · ${num(g.points)} pts" else "No achievements yet",
+                            color = if (g.achievements > 0) Palette.Accent else Palette.Faint,
+                            fontSize = 11.sp,
+                        )
+                    }
+                }
             }
         }
     }

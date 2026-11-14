@@ -76,6 +76,29 @@ class RaApi(val user: String, private val key: String) {
         return out.distinctBy { it.id }
     }
 
+    /** The user's "Want to Play" list from RetroAchievements (paged, 500 per call). */
+    suspend fun wantToPlay(): List<WantGame> {
+        val out = mutableListOf<WantGame>()
+        var offset = 0
+        while (offset < 5000) {
+            val page = obj("API_GetUserWantToPlayList.php", "u" to user, "c" to "500", "o" to "$offset")
+            val results = page.optJSONArray("Results")?.objects().orEmpty()
+            results.mapTo(out) { j ->
+                WantGame(
+                    id = j.optInt("ID"),
+                    title = j.str("Title").orEmpty(),
+                    console = j.str("ConsoleName").orEmpty(),
+                    iconUrl = media(j.str("ImageIcon")),
+                    achievements = j.optInt("AchievementsPublished"),
+                    points = j.optInt("PointsTotal"),
+                )
+            }
+            offset += results.size
+            if (results.size < 500 || offset >= page.optInt("Total")) break
+        }
+        return out.distinctBy { it.id }
+    }
+
     /** Unlocks from the last 30 days, newest first. */
     suspend fun recentUnlocks(): List<Unlock> =
         arr("API_GetUserRecentAchievements.php", "u" to user, "m" to "${60 * 24 * 30}").objects().map { j ->

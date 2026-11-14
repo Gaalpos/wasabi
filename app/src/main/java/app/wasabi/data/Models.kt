@@ -46,6 +46,16 @@ data class LibraryGame(
     val lastUnlock: String?,
 ) : GameProgress
 
+/** A game on the user's RetroAchievements "Want to Play" list. */
+data class WantGame(
+    val id: Int,
+    val title: String,
+    val console: String,
+    val iconUrl: String?,
+    val achievements: Int,
+    val points: Int,
+)
+
 data class Unlock(
     val achievementId: Int,
     val title: String,

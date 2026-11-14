@@ -15,6 +15,7 @@ import app.wasabi.data.Profile
 import app.wasabi.data.RaApi
 import app.wasabi.data.RecentGame
 import app.wasabi.data.Unlock
+import app.wasabi.data.WantGame
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -31,7 +32,9 @@ sealed interface Load<out T> {
     data class Err(val message: String) : Load<Nothing>
 }
 
-enum class HomeTab(val label: String) { Playing("Playing"), Library("Library"), Unlocks("Unlocks"), Profile("Profile") }
+enum class HomeTab(val label: String) {
+    Playing("Playing"), WantToPlay("Want to Play"), Library("Library"), Unlocks("Unlocks"), Profile("Profile")
+}
 enum class LibrarySort(val label: String) { Recent("Recent"), Progress("Progress"), Name("A–Z") }
 enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked("Unlocked") }
 
@@ -54,6 +57,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var recent by mutableStateOf<Load<List<RecentGame>>?>(null); private set
     var library by mutableStateOf<Load<List<LibraryGame>>?>(null); private set
     var unlocks by mutableStateOf<Load<List<Unlock>>?>(null); private set
+    var wantToPlay by mutableStateOf<Load<List<WantGame>>?>(null); private set
     var librarySort by mutableStateOf(LibrarySort.Recent); private set
     private val listStates = HomeTab.entries.associateWith { LazyGridState() }
     fun listState(t: HomeTab) = listStates.getValue(t)
@@ -99,7 +103,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 prefs.save(p.user, k)
                 api = RaApi(p.user, k)
                 profile = Load.Ok(p)
-                recent = null; library = null; unlocks = null
+                recent = null; library = null; unlocks = null; wantToPlay = null
                 tab = HomeTab.Playing
                 stack.clear()
                 stack.add(Screen.Home)
@@ -119,7 +123,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         prefs.clearKey()
         api = null
         profile = Load.Loading
-        recent = null; library = null; unlocks = null; game = null
+        recent = null; library = null; unlocks = null; wantToPlay = null; game = null
         lastFocus.clear()
         stack.clear()
         stack.add(Screen.Login)
@@ -219,6 +223,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun keysFor(t: HomeTab): List<String> = when (t) {
         HomeTab.Playing -> (recent as? Load.Ok)?.data.orEmpty().map { "g:${it.id}" }
+        HomeTab.WantToPlay -> (wantToPlay as? Load.Ok)?.data.orEmpty().map { "w:${it.id}" }
         HomeTab.Library -> sortedLibrary().map { "g:${it.id}" }
         HomeTab.Unlocks -> (unlocks as? Load.Ok)?.data.orEmpty().map { "u:${it.achievementId}:${it.date}" }
         HomeTab.Profile -> listOf("signout")
@@ -234,6 +239,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun ensureTab(t: HomeTab) {
         val state = when (t) {
             HomeTab.Playing -> recent
+            HomeTab.WantToPlay -> wantToPlay
             HomeTab.Library -> library
             HomeTab.Unlocks -> unlocks
             HomeTab.Profile -> profile
@@ -243,6 +249,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun loadTab(t: HomeTab) = when (t) {
         HomeTab.Playing -> launchLoad("recent", { recent = it }, { restoreFocus(t) }) { recentGames() }
+        HomeTab.WantToPlay -> launchLoad("want", { wantToPlay = it }, { restoreFocus(t) }) { wantToPlay() }
         HomeTab.Library -> launchLoad("library", { library = it }, { restoreFocus(t) }) { library() }
         HomeTab.Unlocks -> launchLoad("unlocks", { unlocks = it }, { restoreFocus(t) }) { recentUnlocks() }
         HomeTab.Profile -> loadProfile()

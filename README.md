@@ -11,6 +11,7 @@ the built-in buttons as well as touch.
 | Tab | Contents |
 | --- | --- |
 | **Playing** | Your 50 most recently played games, with progress bars |
+| **Want to Play** | Your RetroAchievements Want to Play list, with achievement counts and points |
 | **Library** | Every game you've unlocked something in; sort by recent, progress or name |
 | **Unlocks** | Your unlocks from the last 30 days |
 | **Profile** | Points, RetroPoints, member since, last seen (rich presence), sign out |
@@ -75,7 +76,7 @@ app/src/main/java/app/wasabi/
   ui/AppViewModel.kt     screen stack, loading, focus restore
   ui/Components.kt       theme, focusable rows, pills, formatting
   ui/LoginScreen.kt
-  ui/HomeScreen.kt       the four tabs
+  ui/HomeScreen.kt       the five tabs
   ui/GameScreen.kt       achievement list
 ```
 

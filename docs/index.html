@@ -75,7 +75,7 @@
   .s-name { font-weight: 700; font-size: 11px; flex: 1; }
   .s-name small { display: block; color: var(--dim); font-weight: 400; font-size: 8.5px; line-height: 1.2; }
   .s-pts { color: var(--wasabi); font-weight: 700; font-size: 10.5px; }
-  .s-tabs { display: flex; gap: 4px; }
+  .s-tabs { display: flex; flex: none; gap: 4px; overflow: hidden; white-space: nowrap; }
   .s-tab { padding: 3px 8px; border-radius: 99px; background: var(--surface); font-weight: 600; font-size: 9px; }
   .s-tab.on { background: var(--wasabi); color: #000; }
   .s-row { display: flex; gap: 8px; align-items: center; background: var(--surface); border-radius: 8px; padding: 6px; border: 1.5px solid transparent; }
@@ -157,7 +157,7 @@
     <div>
       <div class="eyebrow">Android handhelds · 1:1 · 4:3 · 16:9</div>
       <h1>Your <em>RetroAchievements</em>, on your handheld.</h1>
-      <p class="lede">A small Android app that shows your recent games, your library, your latest unlocks and every achievement still left to get. You can use it entirely with the D-pad.</p>
+      <p class="lede">A small Android app that shows your recent games, your Want to Play list, your library, your latest unlocks and every achievement still left to get. You can use it entirely with the D-pad.</p>
       <div class="cta">
         <a class="btn btn-main" href="https://github.com/Gaalpos/wasabi/releases/latest/download/wasabi.apk">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>
@@ -175,7 +175,7 @@
           <div class="s-name">player_one<small>Exploring the Sunken Keep</small></div>
           <div class="s-pts">8,412 pts</div>
         </div>
-        <div class="s-tabs"><span class="s-tab on">Playing</span><span class="s-tab">Library</span><span class="s-tab">Unlocks</span><span class="s-tab">Profile</span></div>
+        <div class="s-tabs"><span class="s-tab on">Playing</span><span class="s-tab">Want to Play</span><span class="s-tab">Library</span><span class="s-tab">Unlocks</span><span class="s-tab">Profile</span></div>
         <div class="s-row focus">
           <div class="s-ic" style="background:linear-gradient(135deg,#3b6fd8,#1a2d5a)"></div>
           <div class="s-body"><div class="s-t">Star Courier</div><div class="s-sub">SNES · 2h ago</div>
@@ -213,9 +213,9 @@
     <div class="grid">
       <div class="card"><h3>Playing</h3><p>Your 50 most recently played games, with progress bars and when you last played each one.</p></div>
       <div class="card"><h3>Library</h3><p>Every game you've unlocked something in. Sort by recent activity, progress or name, and see your mastered and beaten games tagged.</p></div>
+      <div class="card"><h3>Want to Play</h3><p>Your RetroAchievements Want to Play list, with each game's achievement count and points. Open any of them to see what's waiting.</p></div>
       <div class="card"><h3>Unlocks</h3><p>Everything you've unlocked in the last 30 days. Pick one to jump to its game.</p></div>
-      <div class="card"><h3>Full achievement lists</h3><p>Unlocked badges in color and locked ones grayed out, with unlock dates, how many players have each one, and missable or progression tags.</p></div>
-      <div class="card"><h3><span class="dot"></span>Hardcore <span class="dot silver" style="margin-left:10px"></span>softcore</h3><p>Wasabi green marks hardcore unlocks and silver marks softcore, so you can tell them apart at a glance.</p></div>
+      <div class="card"><h3>Full achievement lists</h3><p>Unlocked badges in color and locked ones grayed out, with unlock dates, how many players have each one, and missable or progression tags. <span class="dot"></span>Green is hardcore, <span class="dot silver"></span>silver is softcore.</p></div>
       <div class="card"><h3>Fits any screen</h3><p>One column on near-square screens like the Pocket Classic, and a two-column grid with a side panel on 4:3 and 16:9 landscape. The true-black theme suits AMOLED screens.</p></div>
     </div>
   </div>
