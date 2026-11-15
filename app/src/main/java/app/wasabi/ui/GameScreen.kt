@@ -341,7 +341,7 @@ private fun hubKind(title: String): String? =
 
 /** A game in a series or similar-games list; opens it. */
 @Composable
-private fun RelatedGameRow(vm: AppViewModel, key: String, r: RelatedGame, current: Boolean) {
+fun RelatedGameRow(vm: AppViewModel, key: String, r: RelatedGame, current: Boolean) {
     FocusRow(key, vm, onClick = if (current) null else ({ vm.openGame(r.id, r.title) })) {
         Thumb(r.iconUrl, 44.dp)
         Column(Modifier.weight(1f)) {
@@ -355,7 +355,8 @@ private fun RelatedGameRow(vm: AppViewModel, key: String, r: RelatedGame, curren
             val sub = listOfNotNull(r.console, r.released?.take(4)).joinToString(" · ")
             if (sub.isNotEmpty()) Text(sub, color = Palette.Dim, fontSize = 11.sp)
             Text(
-                if (r.achievements > 0) "${num(r.achievements)} achievements · ${num(r.points)} pts" else "No achievements yet",
+                (if (r.achievements > 0) "${num(r.achievements)} achievements · ${num(r.points)} pts" else "No achievements yet") +
+                    if (r.players > 0) " · ${num(r.players)} players" else "",
                 color = Palette.Faint, fontSize = 11.sp,
             )
         }

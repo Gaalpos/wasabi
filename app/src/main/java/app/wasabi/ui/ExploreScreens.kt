@@ -1,5 +1,6 @@
 package app.wasabi.ui
 
+import androidx.compose.material.icons.rounded.Build
 import app.wasabi.data.Console
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.Icon
@@ -249,6 +250,18 @@ fun BrowseTab(vm: AppViewModel) {
         is Load.Ok -> {
             val (favorites, others) = vm.sortedConsoles()
             CardGrid(vm.listState(HomeTab.Browse)) {
+                items(GameListKind.entries, key = { "list:${it.name}" }) { kind ->
+                    FocusRow("list:${kind.name}", vm, onClick = { vm.openGameList(kind) }) {
+                        Icon(
+                            if (kind == GameListKind.MostPlayed) Icons.Rounded.Star else Icons.Rounded.Build,
+                            contentDescription = null, tint = Palette.Accent, modifier = Modifier.size(24.dp),
+                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(kind.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(kind.subtitle, color = Palette.Dim, fontSize = 11.sp)
+                        }
+                    }
+                }
                 if (favorites.isNotEmpty()) {
                     fullWidthItem("h:fav") { SectionTitle("Favorites") }
                     items(favorites, key = { it.id }) { c -> ConsoleRow(vm, c) }
@@ -412,5 +425,55 @@ fun SearchTab(vm: AppViewModel) {
                 }
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------- Website game lists
+
+/** Most played games or hacks, from the website's game list, with a search box. */
+@Composable
+fun GameListScreen(vm: AppViewModel, screen: Screen.GameList) {
+    val focus = LocalFocusManager.current
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
+            Column(Modifier.weight(1f)) {
+                Text(screen.kind.title, color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val loaded = (vm.gameList as? Load.Ok)?.data
+                Text(
+                    if (loaded == null) screen.kind.subtitle
+                    else vm.filteredGameList().size.let { shown -> if (shown == loaded.size) "${num(shown)} games" else "${num(shown)} of ${num(loaded.size)} games" },
+                    color = Palette.Dim, fontSize = 11.sp,
+                )
+            }
+        }
+        OutlinedTextField(
+            value = vm.listQuery,
+            onValueChange = { vm.listQuery = it },
+            placeholder = { Text("Search this list") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) }),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+        )
+        Column(Modifier.weight(1f)) {
+            when (val s = vm.gameList) {
+                null, Load.Loading -> LoadingView()
+                is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
+                is Load.Ok -> {
+                    val games = vm.filteredGameList()
+                    if (games.isEmpty()) {
+                        EmptyView(if (s.data.isEmpty()) "Nothing here right now." else "No games match \"${vm.listQuery.trim()}\".")
+                    } else CardGrid(vm.gameListState) {
+                        items(games, key = { it.id }) { r -> RelatedGameRow(vm, "gl:${r.id}", r, current = false) }
+                    }
+                }
+            }
+        }
+        HintBar("A" to "Open", "X" to "Want to Play", "B" to "Back", REFRESH to "Refresh")
     }
 }

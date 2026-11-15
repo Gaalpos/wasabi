@@ -181,6 +181,7 @@ data class RelatedGame(
     val achievements: Int,
     val points: Int,
     val released: String? = null,
+    val players: Int = 0,
 )
 
 /** Series, hubs and similar games for one game (website game page + API v2). */

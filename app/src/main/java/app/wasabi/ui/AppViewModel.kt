@@ -48,6 +48,8 @@ sealed interface Screen {
     data class ConsoleGames(val id: Int, val name: String) : Screen
     /** One-time sign-in on retroachievements.org, for Want to Play. */
     data object WebSignIn : Screen
+    /** A website game list: most played, hacks. */
+    data class GameList(val kind: GameListKind) : Screen
     /** A game's images full screen, as (url, label), starting at [index]. */
     data class Images(val images: List<Pair<String, String>>, val index: Int) : Screen
 }
@@ -106,7 +108,19 @@ class GameState {
 }
 
 /** A website page to read in the hidden browser. */
-data class PageJob(val url: String, val nonce: String = System.nanoTime().toString())
+data class PageJob(val url: String, val nonce: String, val script: String)
+
+/** Website game lists reachable from Browse. */
+enum class GameListKind(val title: String, val subtitle: String, val query: String, val pages: Int) {
+    MostPlayed(
+        "Most played games", "The 200 games with the most players",
+        "sort=-playersTotal&page%5Bsize%5D=100", 2,
+    ),
+    Hacks(
+        "Hacks", "ROM hacks with achievements, most played first",
+        "sort=-playersTotal&page%5Bsize%5D=100&filter%5Bgame-type%5D=hack", 5,
+    ),
+}
 
 enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked("Unlocked"), Missable("Missable") }
 
@@ -192,6 +206,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // Another user's page
     var user by mutableStateOf<Load<UserView>?>(null); private set
     val userListState = LazyGridState()
+
+    // A website game list (most played, hacks), filtered by [listQuery]
+    var gameList by mutableStateOf<Load<List<RelatedGame>>?>(null); private set
+    var listQuery by mutableStateOf("")
+    val gameListState = LazyGridState()
 
     // One console's game list
     var consoleGames by mutableStateOf<Load<List<ConsoleGame>>?>(null); private set
@@ -329,7 +348,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (api == null) return
         st.extras = Load.Loading
         if (st.tab == GameTab.Series) st.series = Load.Loading
-        val job = PageJob("${RaWeb.ORIGIN}/game/${s.id}")
+        val nonce = System.nanoTime().toString()
+        val job = PageJob("${RaWeb.ORIGIN}/game/${s.id}", nonce, RaWeb.gamePageScript(nonce))
         pageCallbacks[job.nonce] = { json ->
             st.extras = runCatching { Load.Ok(RaApi.parseExtras(json!!)) }
                 .getOrElse { Load.Err("Couldn't read this game's page on retroachievements.org.") }
@@ -387,7 +407,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun wantToPlayShortcut() {
         val id = when (val s = screen) {
             is Screen.Game -> s.id
-            Screen.Home, is Screen.User, is Screen.ConsoleGames -> focusedGameId()
+            Screen.Home, is Screen.User, is Screen.ConsoleGames, is Screen.GameList -> focusedGameId()
             else -> null
         } ?: return
         toggleWantToPlay(id)
@@ -396,7 +416,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** The game behind the focused list row, if it is one. */
     private fun focusedGameId(): Int? {
         val key = lastFocus[focusScope()] ?: return null
-        val prefixes = listOf("s:a:", "s:f:", "s:w:", "g:", "w:", "sg:", "cg:", "ug:", "ser:", "sim:")
+        val prefixes = listOf("s:a:", "s:f:", "s:w:", "g:", "w:", "sg:", "cg:", "ug:", "ser:", "sim:", "gl:")
         val p = prefixes.firstOrNull { key.startsWith(it) } ?: return null
         return key.removePrefix(p).toIntOrNull()
     }
@@ -627,6 +647,43 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         loadUser(name)
     }
 
+    fun openGameList(kind: GameListKind) {
+        stack.add(Screen.GameList(kind))
+        gameList = null
+        listQuery = ""
+        viewModelScope.launch { gameListState.scrollToItem(0) }
+        loadGameList(kind)
+    }
+
+    /** Reads the list in the hidden browser (the site's browser check blocks the app's own requests). */
+    private fun loadGameList(kind: GameListKind) {
+        if (api == null) return
+        gameList = Load.Loading
+        val nonce = System.nanoTime().toString()
+        pageCallbacks[nonce] = { json ->
+            val parsed = json?.let { runCatching { RaApi.parseGameList(it) }.getOrNull() }
+            gameList = when {
+                parsed == null -> Load.Err("Couldn't read the list from retroachievements.org. Press ${Controls.refresh.label} to retry.")
+                parsed.first != null -> Load.Ok(parsed.first!!)
+                else -> Load.Err("retroachievements.org returned an error (${parsed.second}). Press ${Controls.refresh.label} to retry.")
+            }
+            if (screen == Screen.GameList(kind)) restoreFocusHere()
+        }
+        pageJob = PageJob("${RaWeb.ORIGIN}/robots.txt", nonce, RaWeb.gameListScript(nonce, kind.query, kind.pages))
+        viewModelScope.launch {
+            delay(45_000)
+            if (pageCallbacks.containsKey(nonce)) onPageData(nonce, null)
+        }
+    }
+
+    /** The list filtered by the search box (title words in any order). */
+    fun filteredGameList(): List<RelatedGame> {
+        val all = (gameList as? Load.Ok)?.data.orEmpty()
+        val words = listQuery.trim().lowercase().split(' ').filter { it.isNotEmpty() }
+        if (words.isEmpty()) return all
+        return all.filter { g -> val t = g.title.lowercase(); words.all { it in t } }
+    }
+
     fun openConsole(c: Console) {
         stack.add(Screen.ConsoleGames(c.id, c.name))
         consoleGames = null
@@ -645,6 +702,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             is Screen.User -> { jobs["user"]?.cancel(); user = null }
             is Screen.ConsoleGames -> { jobs["console"]?.cancel(); consoleGames = null }
+            is Screen.GameList -> gameList = null
             Screen.WebSignIn -> afterSignIn = null
             else -> Unit
         }
@@ -666,6 +724,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             is Screen.User -> loadUser(s.name)
             is Screen.ConsoleGames -> loadConsole(s.id)
+            is Screen.GameList -> loadGameList(s.kind)
             is Screen.Images, Screen.WebSignIn, Screen.Login -> Unit
         }
     }
@@ -802,6 +861,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         is Screen.Game -> "game:${s.key}:${gameState(s).tab}"
         is Screen.User -> "user:${s.name}"
         is Screen.ConsoleGames -> "console:${s.id}"
+        is Screen.GameList -> "list:${s.kind}"
         else -> tab.name
     }
 
@@ -814,7 +874,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Library -> sortedLibrary().map { "g:${it.id}" }
         HomeTab.Unlocks -> (unlocks as? Load.Ok)?.data.orEmpty().map { "u:${it.achievementId}:${it.date}" }
         HomeTab.Following -> (following as? Load.Ok)?.data.orEmpty().map { "f:${it.user}" }
-        HomeTab.Browse -> sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
+        HomeTab.Browse -> listOf("list:MostPlayed", "list:Hacks") + sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
         HomeTab.Search -> searchResults().map { "sg:${it.id}" }
         HomeTab.Profile -> listOf("signout")
         HomeTab.Settings -> listOf("upd", "web") + controlsHelp().indices.map { "ctl:$it" } + RefreshButton.entries.map { "rb:${it.name}" } + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
@@ -840,6 +900,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             v.recentGames.map { "ug:${it.id}" } + v.unlocks.map { "uu:${it.achievementId}:${it.date}" }
         }.orEmpty()
         is Screen.ConsoleGames -> filteredConsoleGames().map { "cg:${it.id}" }
+        is Screen.GameList -> filteredGameList().map { "gl:${it.id}" }
         is Screen.Images, Screen.WebSignIn, Screen.Login -> emptyList()
     }
 

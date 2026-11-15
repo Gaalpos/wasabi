@@ -264,6 +264,23 @@ class RaApi(val user: String, private val key: String) {
     companion object {
         private const val BASE = "https://retroachievements.org/API"
 
+        /** Parses RaWeb.gameListScript's report: the games, or the HTTP status that stopped it. */
+        fun parseGameList(json: String): Pair<List<RelatedGame>?, Int?> {
+            val j = JSONObject(json)
+            if (j.has("status")) return null to j.optInt("status")
+            return j.optJSONArray("games")?.objects().orEmpty().map { g ->
+                RelatedGame(
+                    id = g.optInt("id"),
+                    title = g.str("title").orEmpty(),
+                    iconUrl = media(g.str("badgeUrl")),
+                    console = g.str("system"),
+                    achievements = g.optInt("achievements"),
+                    points = g.optInt("points"),
+                    players = g.optInt("players"),
+                )
+            }.filter { it.id > 0 }.distinctBy { it.id } to null
+        }
+
         /** Parses the JSON that RaWeb.gamePageScript reports. */
         fun parseExtras(json: String): GameExtras {
             val j = JSONObject(json)

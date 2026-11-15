@@ -106,6 +106,39 @@ object RaWeb {
     }
 
     /**
+     * Reads pages of the website's game list (/internal-api/games, what its
+     * All Games page uses) with [query] (sort, filters, page size), up to
+     * [pages] pages. Reports {"games":[...]} or {"status":N} through
+     * WasabiBridge.data(nonce, json), or "" on failure.
+     */
+    fun gameListScript(nonce: String, query: String, pages: Int): String = """
+        (async function () {
+          try {
+            var all = [];
+            for (var page = 1; page <= $pages; page++) {
+              var r = await fetch('/internal-api/games?$query&page%5Bnumber%5D=' + page, {
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+              });
+              if (!r.ok) { WasabiBridge.data('$nonce', JSON.stringify({ status: r.status })); return; }
+              var j = await r.json();
+              (j.items || []).forEach(function (e) {
+                var g = e.game || {};
+                all.push({ id: g.id, title: g.title || '', badgeUrl: g.badgeUrl || null,
+                           system: (g.system && g.system.name) || null,
+                           achievements: g.achievementsPublished || 0, points: g.pointsTotal || 0,
+                           players: g.playersTotal || 0 });
+              });
+              if (!j.lastPage || page >= j.lastPage) break;
+            }
+            WasabiBridge.data('$nonce', JSON.stringify({ games: all }));
+          } catch (e) {
+            WasabiBridge.data('$nonce', '');
+          }
+        })();
+    """
+
+    /**
      * Adds ([add] = true) or removes a game from Want to Play and reports
      * the HTTP status through WasabiBridge.done(nonce, status): 2xx done,
      * 401/419 signed out, -1 network error.
