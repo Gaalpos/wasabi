@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -203,23 +204,56 @@ fun Pill(
     }
 }
 
+/** Xbox face-button colors. */
+private val xboxColors = mapOf(
+    "A" to Color(0xFF5DC21E),
+    "B" to Color(0xFFE5383B),
+    "X" to Color(0xFF2E7DE6),
+    "Y" to Color(0xFFF2B705),
+)
+
 /**
- * A controller button drawn like the hardware: round badges for the face
- * buttons (A, B, X, Y), rounded pills for shoulders and Start/Select.
+ * A controller button in the standard Xbox style: colored round A/B/X/Y,
+ * LB/RB bumpers, and the round Menu (≡) button for Start. Keys can be given
+ * by their Android names (L1, R1, Start) or their Xbox names.
  */
 @Composable
-fun ButtonBadge(key: String, color: Color = Palette.Dim) {
-    val round = key.length == 1
-    val shape = if (round) CircleShape else RoundedCornerShape(50)
-    Box(
-        Modifier
-            .then(if (round) Modifier.size(17.dp) else Modifier.height(17.dp))
-            .clip(shape)
-            .border(1.5.dp, color, shape)
-            .padding(horizontal = if (round) 0.dp else 6.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(key, color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+fun ButtonBadge(key: String) {
+    val face = xboxColors[key]
+    when {
+        face != null -> Box(
+            Modifier.size(18.dp).clip(CircleShape).background(face),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                key,
+                color = if (key == "Y") Color(0xFF1A1A1A) else Color.White,
+                fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
+            )
+        }
+        key == "Start" || key == "Menu" -> Box(
+            Modifier.size(18.dp).clip(CircleShape).background(Color(0xFF3A3A44)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Rounded.Menu, contentDescription = "Menu", tint = Color.White, modifier = Modifier.size(12.dp))
+        }
+        else -> {
+            val label = when (key) {
+                "L1" -> "LB"
+                "R1" -> "RB"
+                "L2" -> "LT"
+                "R2" -> "RT"
+                else -> key
+            }
+            // Bumper: rounded on top, nearly square at the bottom.
+            val shape = RoundedCornerShape(topStart = 9.dp, topEnd = 9.dp, bottomStart = 3.dp, bottomEnd = 3.dp)
+            Box(
+                Modifier.height(18.dp).clip(shape).background(Color(0xFF3A3A44)).padding(horizontal = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            }
+        }
     }
 }
 

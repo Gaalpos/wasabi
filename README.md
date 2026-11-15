@@ -34,10 +34,10 @@ Wasabi green means hardcore and silver means softcore.
 | D-pad | Move |
 | A | Open |
 | B | Back |
-| L1 / R1 | Previous / next tab |
+| LB / RB (L1 / R1) | Previous / next tab |
 | Y | Sort the library, or filter a game's achievements |
 | X | Refresh |
-| Start | Settings: accent color (Wasabi, Teal, Sky, Violet, Pink, Coral, Gold) and which tabs are shown |
+| Menu (Start) | Settings: accent color (Wasabi, Teal, Sky, Violet, Pink, Coral, Gold) and which tabs are shown |
 
 A and B work through Android's standard gamepad mapping. If they feel
 swapped, change the A/B layout in the Retroid settings.

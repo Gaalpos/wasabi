@@ -98,7 +98,14 @@
   .s-track i.soft { background: var(--silver); }
   .s-n { color: var(--dim); font-size: 8px; }
   .s-hints { margin-top: auto; display: flex; justify-content: center; gap: 9px; color: var(--dim); font-size: 8px; }
-  .s-hints span b { background: var(--dim); color: #000; border-radius: 3px; padding: 0 3px; margin-right: 3px; font-size: 7px; }
+  .s-hints span { display: inline-flex; align-items: center; gap: 3px; }
+  /* Xbox-style controller glyphs, same as the app's hint bar. */
+  .xb { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: #fff; font: 800 10px/1 Inter, sans-serif; }
+  .xb.a { background: #5dc21e; } .xb.b { background: #e5383b; } .xb.x { background: #2e7de6; } .xb.y { background: #f2b705; color: #1a1a1a; }
+  .xb.menu { background: #3a3a44; }
+  .xb.menu::before { content: ""; width: 9px; height: 7px; background: linear-gradient(#fff 0 0) top/100% 1.6px no-repeat, linear-gradient(#fff 0 0) center/100% 1.6px no-repeat, linear-gradient(#fff 0 0) bottom/100% 1.6px no-repeat; }
+  .bump { display: inline-grid; place-items: center; height: 18px; padding: 0 6px; border-radius: 9px 9px 3px 3px; background: #3a3a44; color: #fff; font: 800 9px/1 Inter, sans-serif; }
+  .s-hints .xb, .s-hints .bump { transform: scale(.62); margin: 0 -3px; }
   .pad { display: flex; justify-content: space-between; align-items: center; padding: 10px 10px 0; }
   .dpad { position: relative; width: 66px; height: 66px; }
   .dpad::before, .dpad::after { content: ""; position: absolute; background: linear-gradient(#2a2d26, #121410); border-radius: 4px; }
@@ -129,6 +136,8 @@
 
   .controls { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
   .key { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid #1c1c22; border-radius: 12px; padding: 14px 16px; }
+  .key .glyphs { display: inline-flex; gap: 4px; min-width: 44px; justify-content: center; }
+  .key .glyphs .xb, .key .glyphs .bump { transform: scale(1.3); margin: 0 3px; }
   .key kbd { min-width: 44px; padding: 5px 8px; text-align: center; border-radius: 8px; background: var(--surface-hi); border: 1px solid #34343d; font: 700 13px "JetBrains Mono", monospace; color: var(--text); }
   .key span { color: var(--dim); font-size: 14.5px; }
 
@@ -206,7 +215,7 @@
             <div class="s-body"><div class="s-t">Turbo Kart Rally</div><div class="s-sub">N64 · 4d ago</div>
               <div class="s-prog"><div class="s-track"><i class="soft" style="width:24%"></i></div><span class="s-n">12/49</span></div></div>
           </div>
-          <div class="s-hints"><span><b>A</b>Open</span><span><b>X</b>Refresh</span><span><b>L1/R1</b>Tabs</span></div>
+          <div class="s-hints"><span><i class="xb a">A</i>Open</span><span><i class="xb x">X</i>Refresh</span><span><i class="bump">LB</i><i class="bump">RB</i>Tabs</span></div>
         </div>
       </div>
       <div class="home"></div>
@@ -244,12 +253,12 @@
     <p class="sub">Every screen works with the built-in buttons. A green outline shows what's selected, and going back returns you to the row you were on. Touch works too.</p>
     <div class="controls">
       <div class="key"><kbd>D-pad</kbd><span>Move between items</span></div>
-      <div class="key"><kbd>A</kbd><span>Open a game</span></div>
-      <div class="key"><kbd>B</kbd><span>Go back</span></div>
-      <div class="key"><kbd>L1 R1</kbd><span>Previous / next tab</span></div>
-      <div class="key"><kbd>Y</kbd><span>Sort library / filter achievements</span></div>
-      <div class="key"><kbd>X</kbd><span>Refresh</span></div>
-      <div class="key"><kbd>Start</kbd><span>Settings</span></div>
+      <div class="key"><span class="glyphs"><i class="xb a">A</i></span><span>Open a game</span></div>
+      <div class="key"><span class="glyphs"><i class="xb b">B</i></span><span>Go back</span></div>
+      <div class="key"><span class="glyphs"><i class="bump">LB</i><i class="bump">RB</i></span><span>Previous / next tab</span></div>
+      <div class="key"><span class="glyphs"><i class="xb y">Y</i></span><span>Sort library / filter achievements</span></div>
+      <div class="key"><span class="glyphs"><i class="xb x">X</i></span><span>Refresh</span></div>
+      <div class="key"><span class="glyphs"><i class="xb menu" aria-label="Menu"></i></span><span>Settings (Menu / Start)</span></div>
     </div>
   </div>
 </section>
