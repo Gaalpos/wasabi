@@ -1,5 +1,6 @@
 package app.wasabi.ui
 
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.ui.graphics.graphicsLayer
@@ -234,134 +235,82 @@ object Controls {
 /** Use as a HintBar key to show whichever button refreshes. */
 const val REFRESH = "\u0000refresh"
 
-private val BadgeSlate = Color(0xFF403D52)
-private val BadgeEdge = Color(0xFF34324A)
+// Controller icons: one size, one neutral fill with a light edge so they
+// read well on the black background, and bright colored face letters.
+private val BadgeFill = Color(0xFF2A2A33)
+private val BadgeEdge = Color(0xFF55555F)
+private val BadgeSize = 20.dp
 
-/** Face-button letter colors: Y yellow, X blue, A green, B red. */
+/** Face-button letters: A green, B red, X blue, Y yellow. */
 private val faceLetter = mapOf(
-    "Y" to Color(0xFFFFD31A),
-    "X" to Color(0xFF2EA8E5),
-    "A" to Color(0xFF43EB4A),
-    "B" to Color(0xFFFF5252),
+    "A" to Color(0xFF4ADE80),
+    "B" to Color(0xFFF87171),
+    "X" to Color(0xFF60A5FA),
+    "Y" to Color(0xFFFACC15),
 )
 
+/** Bold label text; line height equals the font size so it sits centered (no font padding by default). */
+private val badgeText = TextStyle(fontWeight = FontWeight.ExtraBold)
+
 /**
- * A controller button icon, drawn after the provided button set: slate
- * circles with colored letters for A/B/X/Y, slanted bumpers for L1/R1,
- * triggers for L2/R2, ringed sticks for L3/R3, View (Select) and Menu
- * (Start) circles, and a D-pad ("DPad", or "DPadLR" for left/right).
+ * A controller button icon. Face buttons (A, B, X, Y) are circles with a
+ * colored letter; shoulders (L1, R1, L2, R2) and any other named button are
+ * rounded pills; Start is a menu icon, Select a view icon; "DPad" a D-pad
+ * and "DPadLR" a D-pad with left/right arrows.
  */
 @Composable
 fun ButtonBadge(key: String) {
+    val circle = Modifier.size(BadgeSize).clip(CircleShape).background(BadgeFill).border(1.dp, BadgeEdge, CircleShape)
     when (key) {
-        "A", "B", "X", "Y" -> Box(
-            Modifier.size(18.dp).clip(CircleShape).background(BadgeSlate).border(1.dp, BadgeEdge, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(key, color = faceLetter.getValue(key), fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
-        }
-        "L1", "R1" -> ShoulderBadge(key, width = 27.dp, height = 17.dp, mirrored = key == "R1") { w, h ->
-            // Bumper: tall on the outer side, sloping down toward the middle.
-            moveTo(0f, h * 0.22f)
-            quadraticTo(0f, 0f, w * 0.14f, 0f)
-            lineTo(w * 0.88f, h * 0.26f)
-            quadraticTo(w, h * 0.3f, w, h * 0.48f)
-            lineTo(w, h * 0.82f)
-            quadraticTo(w, h, w * 0.88f, h)
-            lineTo(w * 0.14f, h)
-            quadraticTo(0f, h, 0f, h * 0.8f)
-            close()
-        }
-        "L2", "R2" -> ShoulderBadge(key, width = 19.dp, height = 20.dp, mirrored = key == "R2") { w, h ->
-            // Trigger: a rounded column that flares out at the bottom.
-            moveTo(w * 0.3f, h * 0.1f)
-            quadraticTo(w * 0.3f, 0f, w * 0.42f, 0f)
-            lineTo(w * 0.9f, 0f)
-            quadraticTo(w, 0f, w, h * 0.08f)
-            lineTo(w, h * 0.86f)
-            quadraticTo(w, h, w * 0.86f, h)
-            lineTo(w * 0.12f, h)
-            quadraticTo(0f, h, w * 0.04f, h * 0.88f)
-            quadraticTo(w * 0.3f, h * 0.55f, w * 0.3f, h * 0.1f)
-            close()
-        }
-        "L3", "R3" -> Box(
-            Modifier.size(18.dp).drawBehind {
-                val r = size.minDimension / 2
-                drawCircle(Color(0xFF2A2939), r)
-                drawCircle(Color(0xFF3A384D), r * 0.84f)
-                drawCircle(Color(0xFF55536B), r * 0.8f, style = Stroke(0.6.dp.toPx()))
-            },
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(key, color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Black, maxLines = 1)
+        "A", "B", "X", "Y" -> Box(circle, contentAlignment = Alignment.Center) {
+            Text(key, color = faceLetter.getValue(key), fontSize = 12.sp, lineHeight = 12.sp, style = badgeText, maxLines = 1)
         }
         "Start", "Menu" -> Box(
-            Modifier.size(18.dp).clip(CircleShape).background(BadgeSlate).drawBehind {
-                val w = size.width
-                val stroke = 1.3.dp.toPx()
-                listOf(0.33f, 0.5f, 0.67f).forEach { y ->
-                    drawLine(Color.White, Offset(w * 0.28f, size.height * y), Offset(w * 0.72f, size.height * y), stroke, StrokeCap.Round)
+            circle.drawBehind {
+                val stroke = 1.4.dp.toPx()
+                listOf(0.36f, 0.5f, 0.64f).forEach { y ->
+                    drawLine(Color.White, Offset(size.width * 0.3f, size.height * y), Offset(size.width * 0.7f, size.height * y), stroke, StrokeCap.Round)
                 }
             },
         )
         "Select", "View" -> Box(
-            Modifier.size(18.dp).clip(CircleShape).background(BadgeSlate).drawBehind {
+            circle.drawBehind {
                 val w = size.width
                 val h = size.height
-                val stroke = Stroke(1.dp.toPx())
-                drawRect(Color.White, Offset(w * 0.24f, h * 0.28f), Size(w * 0.34f, h * 0.26f), style = stroke)
-                drawRect(BadgeSlate, Offset(w * 0.4f, h * 0.42f), Size(w * 0.38f, h * 0.3f))
-                drawRect(Color.White, Offset(w * 0.4f, h * 0.42f), Size(w * 0.38f, h * 0.3f), style = stroke)
+                val stroke = Stroke(1.2.dp.toPx())
+                drawRect(Color.White, Offset(w * 0.26f, h * 0.3f), Size(w * 0.3f, h * 0.24f), style = stroke)
+                drawRect(BadgeFill, Offset(w * 0.42f, h * 0.44f), Size(w * 0.34f, h * 0.26f))
+                drawRect(Color.White, Offset(w * 0.42f, h * 0.44f), Size(w * 0.34f, h * 0.26f), style = stroke)
             },
         )
         "DPad", "DPadLR" -> Box(
-            Modifier.size(19.dp).drawBehind {
+            Modifier.size(BadgeSize).drawBehind {
                 val w = size.width
-                val h = size.height
-                val arm = w * 0.34f
-                val corner = CornerRadius(1.5.dp.toPx())
-                drawRoundRect(Color(0xFF393748), Offset((w - arm) / 2, 0f), Size(arm, h), corner)
-                drawRoundRect(Color(0xFF393748), Offset(0f, (h - arm) / 2), Size(w, arm), corner)
-                drawRect(Color(0xFF2B2A39), Offset((w - arm) / 2, (h - arm) / 2), Size(arm, arm))
+                val arm = w * 0.36f
+                val r = CornerRadius(2.dp.toPx())
+                val edge = 1.dp.toPx()
+                // Light edge first, then the fill, so the cross has a clean outline.
+                drawRoundRect(BadgeEdge, Offset((w - arm) / 2 - edge, -0f), Size(arm + edge * 2, w), r)
+                drawRoundRect(BadgeEdge, Offset(0f, (w - arm) / 2 - edge), Size(w, arm + edge * 2), r)
+                drawRoundRect(BadgeFill, Offset((w - arm) / 2, edge), Size(arm, w - edge * 2), r)
+                drawRoundRect(BadgeFill, Offset(edge, (w - arm) / 2), Size(w - edge * 2, arm), r)
                 if (key == "DPadLR") {
-                    val cy = h / 2
-                    val t = w * 0.09f
-                    val left = Path().apply { moveTo(w * 0.07f, cy); lineTo(w * 0.07f + t * 1.4f, cy - t); lineTo(w * 0.07f + t * 1.4f, cy + t); close() }
-                    val right = Path().apply { moveTo(w * 0.93f, cy); lineTo(w * 0.93f - t * 1.4f, cy - t); lineTo(w * 0.93f - t * 1.4f, cy + t); close() }
-                    drawPath(left, Color.White)
-                    drawPath(right, Color.White)
+                    val cy = w / 2
+                    val t = w * 0.1f
+                    drawPath(Path().apply { moveTo(w * 0.1f, cy); lineTo(w * 0.1f + t * 1.3f, cy - t); lineTo(w * 0.1f + t * 1.3f, cy + t); close() }, Color.White)
+                    drawPath(Path().apply { moveTo(w * 0.9f, cy); lineTo(w * 0.9f - t * 1.3f, cy - t); lineTo(w * 0.9f - t * 1.3f, cy + t); close() }, Color.White)
                 }
             },
         )
-        else -> Box(
-            Modifier.height(18.dp).clip(RoundedCornerShape(50)).background(BadgeSlate).padding(horizontal = 6.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(key, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black, maxLines = 1)
+        else -> {
+            val pill = RoundedCornerShape(6.dp)
+            Box(
+                Modifier.height(BadgeSize).clip(pill).background(BadgeFill).border(1.dp, BadgeEdge, pill).padding(horizontal = 6.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(key, color = Color.White, fontSize = 10.sp, lineHeight = 10.sp, style = badgeText, maxLines = 1)
+            }
         }
-    }
-}
-
-/** A bumper or trigger shape with its name; [mirrored] for the right-hand side. */
-@Composable
-private fun ShoulderBadge(
-    label: String,
-    width: Dp,
-    height: Dp,
-    mirrored: Boolean,
-    outline: Path.(w: Float, h: Float) -> Unit,
-) {
-    Box(Modifier.size(width, height), contentAlignment = if (mirrored) Alignment.BottomStart else Alignment.BottomEnd) {
-        Canvas(Modifier.matchParentSize().graphicsLayer { if (mirrored) scaleX = -1f }) {
-            val p = Path().apply { outline(size.width, size.height) }
-            drawPath(p, BadgeSlate)
-            drawPath(p, BadgeEdge, style = Stroke(0.8.dp.toPx()))
-        }
-        Text(
-            label, color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Black, maxLines = 1,
-            modifier = Modifier.padding(horizontal = 3.dp, vertical = 2.dp),
-        )
     }
 }
 

@@ -497,15 +497,58 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Update the local list right away instead of waiting for a reload. */
     private fun applyWantChange(job: WebJob) {
         val list = (wantToPlay as? Load.Ok)?.data.orEmpty()
-        val g = gameStates.values.firstNotNullOfOrNull { (it.detail as? Load.Ok)?.data?.takeIf { d -> d.id == job.gameId } }
         wantToPlay = Load.Ok(
             if (job.add) {
-                if (list.any { it.id == job.gameId } || g == null) list
-                else listOf(WantGame(g.id, g.title, g.console, g.iconUrl, g.total, g.points)) + list
+                if (list.any { it.id == job.gameId }) list
+                else listOf(knownWantGame(job.gameId)) + list
             } else {
                 list.filterNot { it.id == job.gameId }
             }
         )
+        // Then confirm with RetroAchievements, keeping this change if the
+        // reload doesn't include it yet.
+        val a = api ?: return
+        viewModelScope.launch {
+            val fresh = runCatching { a.wantToPlay() }.getOrNull() ?: return@launch
+            val inFresh = fresh.any { it.id == job.gameId }
+            wantToPlay = Load.Ok(
+                when {
+                    job.add && !inFresh -> listOf(knownWantGame(job.gameId)) + fresh
+                    !job.add && inFresh -> fresh.filterNot { it.id == job.gameId }
+                    else -> fresh
+                }
+            )
+        }
+    }
+
+    /**
+     * The best details Wasabi already has for [id] (from an open game, any
+     * loaded list or the search catalog), so a game added from a list shows
+     * ✓ right away and appears on the Want to Play tab.
+     */
+    private fun knownWantGame(id: Int): WantGame {
+        gameStates.values.firstNotNullOfOrNull { (it.detail as? Load.Ok)?.data?.takeIf { d -> d.id == id } }
+            ?.let { return WantGame(it.id, it.title, it.console, it.iconUrl, it.total, it.points) }
+        (recent as? Load.Ok)?.data?.firstOrNull { it.id == id }
+            ?.let { return WantGame(it.id, it.title, it.console, it.iconUrl, it.total, 0) }
+        (library as? Load.Ok)?.data?.firstOrNull { it.id == id }
+            ?.let { return WantGame(it.id, it.title, it.console, it.iconUrl, it.total, 0) }
+        val related = listOfNotNull(
+            (gameList as? Load.Ok)?.data,
+            gameStates.values.flatMap { st -> (st.series as? Load.Ok)?.data.orEmpty() + (st.extras as? Load.Ok)?.data?.similar.orEmpty() },
+        ).flatten()
+        related.firstOrNull { it.id == id }
+            ?.let { return WantGame(it.id, it.title, it.console.orEmpty(), it.iconUrl, it.achievements, it.points) }
+        val consoleList = (consoleGames as? Load.Ok)?.data.orEmpty() + (catalog as? Load.Ok)?.data.orEmpty()
+        consoleList.firstOrNull { it.id == id }
+            ?.let { return WantGame(it.id, it.title, it.console, it.iconUrl, it.achievements, it.points) }
+        (suggested as? Load.Ok)?.data?.let { sug ->
+            sug.almostDone.firstOrNull { it.id == id }?.let { return WantGame(it.id, it.title, it.console, it.iconUrl, it.total, 0) }
+            sug.friendsPlaying.firstOrNull { it.game.id == id }?.game?.let { return WantGame(it.id, it.title, it.console, it.iconUrl, it.total, 0) }
+        }
+        (user as? Load.Ok)?.data?.recentGames?.firstOrNull { it.id == id }
+            ?.let { return WantGame(it.id, it.title, it.console, it.iconUrl, it.total, 0) }
+        return WantGame(id, "Game $id", "", null, 0, 0)
     }
 
     /** The sign-in page reached a signed-in page. */
