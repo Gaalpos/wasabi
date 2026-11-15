@@ -160,6 +160,7 @@ class RaApi(val user: String, private val key: String) {
                 achievements = j.optInt("NumAchievements"),
                 points = j.optInt("Points"),
                 console = j.str("ConsoleName") ?: consoleName,
+                updated = j.str("DateModified"),
             )
         }.distinctBy { it.id }.sortedBy { it.title.lowercase() }
 

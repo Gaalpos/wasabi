@@ -1,5 +1,6 @@
 package app.wasabi.ui
 
+import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Build
 import app.wasabi.data.Console
 import androidx.compose.ui.draw.clip
@@ -319,11 +320,23 @@ fun ConsoleScreen(vm: AppViewModel, screen: Screen.ConsoleGames) {
             }
             val fav = vm.isFavoriteConsole(screen.id)
             Pill(
-                if (fav) "Favorite" else "Add favorite",
+                "Favorite",
                 onClick = { vm.toggleFavoriteConsole(screen.id) },
                 selected = fav,
                 compact = true,
                 icon = Icons.Rounded.Star,
+            )
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Pill(
+                "Sort: ${vm.consoleSort.label}",
+                onClick = { vm.cycleConsoleSort() },
+                compact = true,
+                icon = Icons.AutoMirrored.Rounded.List,
+                focusKey = "csort", vm = vm,
             )
         }
         OutlinedTextField(
@@ -349,7 +362,7 @@ fun ConsoleScreen(vm: AppViewModel, screen: Screen.ConsoleGames) {
                 }
             }
         }
-        HintBar("A" to "Open", "X" to "Want to Play", "Y" to "Favorite", "B" to "Back", REFRESH to "Refresh")
+        HintBar("A" to "Open", "X" to "Want to Play", "Y" to "Sort", "B" to "Back", REFRESH to "Refresh")
     }
 }
 

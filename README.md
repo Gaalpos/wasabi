@@ -16,7 +16,7 @@ the built-in buttons as well as touch.
 | **Library** | Every game you've unlocked something in; sort by recent, progress or name |
 | **Unlocks** | Your unlocks from the last 30 days |
 | **Following** | Players you follow; open one to see their recent games, unlocks and per-game progress |
-| **Browse** | **Most played games** (top 200 by players) and **Hacks** (ROM hacks, most played first), both searchable, from the website's game list; then every system: pick one to search its games. Press **Y** (or tap the star) to favorite a system; favorites stay at the top |
+| **Browse** | **Most played games** (top 200 by players) and **Hacks** (ROM hacks, most played first), both searchable, from the website's game list; then every system: pick one to search its games and sort them (**Y**: A–Z, most achievements, most points, recently updated). Press **Y** (or tap the star) to favorite a system; favorites stay at the top |
 | **Search** | Search every game with achievements by name (game lists are cached for a week) |
 | **Profile** | Points, RetroPoints, member since, last seen (rich presence), sign out |
 
@@ -45,7 +45,7 @@ Wasabi green means hardcore and silver means softcore.
 | A | Open, select or change |
 | B | Go back |
 | X | Add the game to Want to Play, or remove it (on a game, or the selected game in any list; game rows also have a +/✓ button) |
-| Y | Sort the library, filter achievements, favorite a system, or remove a game from Playing |
+| Y | Sort the library or a system's games, filter achievements, favorite a system (in Browse), or remove a game from Playing |
 | L1 / R1 | Previous / next tab (on a game: its tabs) |
 | R2 | Refresh. Pick L2 or Select instead in **Settings → Refresh button** |
 | Start | Settings |

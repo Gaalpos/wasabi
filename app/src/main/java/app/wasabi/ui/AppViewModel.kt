@@ -122,6 +122,14 @@ enum class GameListKind(val title: String, val subtitle: String, val query: Stri
     ),
 }
 
+/** Sort orders for a system's game list. */
+enum class ConsoleSort(val label: String) {
+    Name("A–Z"),
+    Achievements("Most achievements"),
+    Points("Most points"),
+    Updated("Recently updated"),
+}
+
 enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked("Unlocked"), Missable("Missable") }
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -215,6 +223,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // One console's game list
     var consoleGames by mutableStateOf<Load<List<ConsoleGame>>?>(null); private set
     var consoleQuery by mutableStateOf("")
+    var consoleSort by mutableStateOf(ConsoleSort.Name); private set
     val consoleListState = LazyGridState()
 
     // D-pad focus: the key of the row that should grab focus next, and the
@@ -788,7 +797,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 viewModelScope.launch { listState(HomeTab.Library).scrollToItem(0) }
                 focusTarget = sortedLibrary().firstOrNull()?.let { "g:${it.id}" }
             }
-            is Screen.ConsoleGames -> toggleFavoriteConsole((screen as Screen.ConsoleGames).id)
+            is Screen.ConsoleGames -> cycleConsoleSort()
             is Screen.Game -> currentGame?.takeIf { it.tab == GameTab.Achievements }?.let { st ->
                 st.filter = AchFilter.entries[(st.filter.ordinal + 1) % AchFilter.entries.size]
                 viewModelScope.launch { st.listStates.getValue(GameTab.Achievements).scrollToItem(0) }
@@ -891,11 +900,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         (consoles as? Load.Ok)?.data.orEmpty().partition { it.id in favoriteConsoles }
 
     /** Console games matching the search box (title words in any order). */
+    /** The system's games matching the search box, in the chosen order. */
     fun filteredConsoleGames(): List<ConsoleGame> {
         val all = (consoleGames as? Load.Ok)?.data.orEmpty()
         val words = consoleQuery.trim().lowercase().split(' ').filter { it.isNotEmpty() }
-        if (words.isEmpty()) return all
-        return all.filter { g -> val t = g.title.lowercase(); words.all { it in t } }
+        val matches = if (words.isEmpty()) all else all.filter { g -> val t = g.title.lowercase(); words.all { it in t } }
+        return when (consoleSort) {
+            ConsoleSort.Name -> matches.sortedBy { it.title.lowercase() }
+            ConsoleSort.Achievements -> matches.sortedWith(compareByDescending<ConsoleGame> { it.achievements }.thenBy { it.title.lowercase() })
+            ConsoleSort.Points -> matches.sortedWith(compareByDescending<ConsoleGame> { it.points }.thenBy { it.title.lowercase() })
+            ConsoleSort.Updated -> matches.sortedWith(compareByDescending<ConsoleGame> { it.updated.orEmpty() }.thenBy { it.title.lowercase() })
+        }
+    }
+
+    /** Y on a system's game list: next sort order, back to the top. */
+    fun cycleConsoleSort() {
+        consoleSort = ConsoleSort.entries[(consoleSort.ordinal + 1) % ConsoleSort.entries.size]
+        viewModelScope.launch { consoleListState.scrollToItem(0) }
+        focusTarget = filteredConsoleGames().firstOrNull()?.let { "cg:${it.id}" } ?: "csort"
     }
 
     // ---- focus bookkeeping ----

@@ -156,6 +156,8 @@ data class ConsoleGame(
     val achievements: Int,
     val points: Int,
     val console: String = "",
+    /** When the achievement set last changed ("YYYY-MM-DD HH:MM:SS"), if known. */
+    val updated: String? = null,
 )
 
 /** A game people you follow have played recently and you haven't started. */
