@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.wasabi.data.Background
@@ -139,6 +143,18 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun App(vm: AppViewModel) {
     BackHandler(enabled = vm.stack.size > 1) { vm.back() }
+    // On the first screen, B only exits on a second press within 2 seconds.
+    val activity = LocalContext.current as? android.app.Activity
+    var lastBack by remember { mutableLongStateOf(0L) }
+    BackHandler(enabled = vm.stack.size <= 1) {
+        val now = System.currentTimeMillis()
+        if (now - lastBack < 2000) {
+            activity?.finish()
+        } else {
+            lastBack = now
+            activity?.let { android.widget.Toast.makeText(it, "Press B again to exit", android.widget.Toast.LENGTH_SHORT).show() }
+        }
+    }
     // Open Android's installer when an update finishes downloading or the
     // user presses Install; retried after granting "install unknown apps".
     val context = LocalContext.current
