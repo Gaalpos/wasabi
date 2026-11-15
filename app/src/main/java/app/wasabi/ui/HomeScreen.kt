@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -34,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -69,6 +72,7 @@ fun HomeScreen(vm: AppViewModel) {
                     HomeTab.WantToPlay -> WantToPlayTab(vm)
                     HomeTab.Following -> FollowingTab(vm)
                     HomeTab.Browse -> BrowseTab(vm)
+                    HomeTab.Search -> SearchTab(vm)
                     HomeTab.Library -> LibraryTab(vm)
                     HomeTab.Unlocks -> UnlocksTab(vm)
                     HomeTab.Profile -> ProfileTab(vm, wide)
@@ -76,33 +80,80 @@ fun HomeScreen(vm: AppViewModel) {
             }
             when (vm.tab) {
                 HomeTab.Library -> HintBar("A" to "Open", "Y" to "Sort", "X" to "Refresh", "L1/R1" to "Tabs")
-                HomeTab.Profile -> HintBar("X" to "Refresh", "L1/R1" to "Tabs")
+                HomeTab.Profile -> HintBar("X" to "Refresh", "L1/R1" to "Tabs", "Start" to "Settings")
+                HomeTab.Search -> HintBar("A" to "Open", "X" to "Reload games", "L1/R1" to "Tabs")
                 else -> HintBar("A" to "Open", "X" to "Refresh", "L1/R1" to "Tabs")
             }
         }
     }
 }
 
-/** Scrollable tab strip; the selected tab is kept in view when L1/R1 change it. */
+/**
+ * Tab strip: compact pills that scroll sideways. Fades with arrows show
+ * when more tabs are off-screen on either side, L1/R1 keycaps flank it,
+ * and the selected tab is kept in view when L1/R1 change it.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Tabs(vm: AppViewModel, modifier: Modifier = Modifier) {
-    Row(
-        modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        HomeTab.entries.forEach { t ->
-            val selected = vm.tab == t
-            val requester = remember { BringIntoViewRequester() }
-            LaunchedEffect(selected) { if (selected) requester.bringIntoView() }
-            Pill(
-                t.label,
-                onClick = { vm.selectTab(t) },
-                selected = selected,
-                modifier = Modifier.bringIntoViewRequester(requester),
-            )
+    val scroll = rememberScrollState()
+    Row(modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        KeyCap("L1")
+        Box(Modifier.weight(1f).padding(horizontal = 6.dp)) {
+            Row(
+                Modifier.horizontalScroll(scroll),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                vm.visibleTabs.forEach { t ->
+                    val selected = vm.tab == t
+                    val requester = remember { BringIntoViewRequester() }
+                    LaunchedEffect(selected) { if (selected) requester.bringIntoView() }
+                    Pill(
+                        t.label,
+                        onClick = { vm.selectTab(t) },
+                        selected = selected,
+                        compact = true,
+                        modifier = Modifier.bringIntoViewRequester(requester),
+                    )
+                }
+                Pill("Settings", onClick = { vm.openSettings() }, compact = true)
+            }
+            Row(Modifier.matchParentSize()) {
+                if (scroll.canScrollBackward) EdgeFade(left = true)
+                Spacer(Modifier.weight(1f))
+                if (scroll.canScrollForward) EdgeFade(left = false)
+            }
         }
+        KeyCap("R1")
     }
+}
+
+/** Fades the strip's edge into the background and points at hidden tabs. */
+@Composable
+private fun EdgeFade(left: Boolean) {
+    val colors = listOf(Palette.Bg, Palette.Bg.copy(alpha = 0.85f), Color.Transparent)
+    Box(
+        Modifier.width(30.dp).fillMaxHeight()
+            .background(Brush.horizontalGradient(if (left) colors else colors.reversed())),
+        contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd,
+    ) {
+        Text(if (left) "‹" else "›", color = Palette.Accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun KeyCap(label: String) {
+    Text(
+        label,
+        color = Palette.Dim,
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .clip(RoundedCornerShape(5.dp))
+            .background(Palette.Surface)
+            .padding(horizontal = 5.dp, vertical = 3.dp),
+    )
 }
 
 @Composable

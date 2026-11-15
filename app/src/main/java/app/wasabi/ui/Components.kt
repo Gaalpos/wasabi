@@ -52,12 +52,25 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
+/** Accent colors offered in Settings. */
+enum class AccentColor(val label: String, val color: Color) {
+    Wasabi("Wasabi", Color(0xFF9DC93B)),
+    Teal("Teal", Color(0xFF2EC4B6)),
+    Sky("Sky", Color(0xFF5AB0FF)),
+    Violet("Violet", Color(0xFFB48CFF)),
+    Pink("Pink", Color(0xFFFF6FB5)),
+    Coral("Coral", Color(0xFFFF7A5C)),
+    Gold("Gold", Color(0xFFF5B700)),
+}
+
 object Palette {
+    /** The chosen accent. Composables that read [Accent] redraw when it changes. */
+    var accent by mutableStateOf(AccentColor.Wasabi)
     val Bg = Color(0xFF000000)          // true black for the AMOLED panel
     val Surface = Color(0xFF141418)
     val SurfaceHi = Color(0xFF26262E)
     val Track = Color(0xFF2E2E36)
-    val Accent = Color(0xFF9DC93B)      // wasabi green: hardcore, focus
+    val Accent: Color get() = accent.color   // hardcore, focus, selection
     val Soft = Color(0xFFAFC0D8)        // softcore / silver
     val Text = Color(0xFFF2F2F5)
     val Dim = Color(0xFF9C9CA8)
@@ -135,6 +148,7 @@ fun Pill(
     selected: Boolean = false,
     focusKey: String? = null,
     vm: AppViewModel? = null,
+    compact: Boolean = false,
 ) {
     var focused by remember { mutableStateOf(false) }
     val requester = remember { FocusRequester() }
@@ -162,12 +176,12 @@ fun Pill(
             )
             .border(2.dp, if (focused) (if (selected) Palette.Text else Palette.Accent) else Color.Transparent, shape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = if (compact) 10.dp else 12.dp, vertical = if (compact) 5.dp else 6.dp),
     ) {
         Text(
             text,
             color = if (selected) Color.Black else Palette.Text,
-            fontSize = 13.sp,
+            fontSize = if (compact) 12.sp else 13.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
         )

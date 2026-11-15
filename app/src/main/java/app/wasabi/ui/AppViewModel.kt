@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.wasabi.data.Catalog
 import app.wasabi.data.Console
 import app.wasabi.data.ConsoleGame
 import app.wasabi.data.FollowedUser
@@ -36,6 +37,7 @@ sealed interface Screen {
     data class User(val name: String) : Screen
     /** All games with achievements on one console. */
     data class ConsoleGames(val id: Int, val name: String) : Screen
+    data object Settings : Screen
 }
 
 sealed interface Load<out T> {
@@ -52,6 +54,7 @@ enum class HomeTab(val label: String) {
     Unlocks("Unlocks"),
     Following("Following"),
     Browse("Browse"),
+    Search("Search"),
     Profile("Profile"),
 }
 enum class LibrarySort(val label: String) { Recent("Recent"), Progress("Progress"), Name("A–Z") }
@@ -59,6 +62,7 @@ enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
+    private val catalogStore = Catalog(app)
     private var api: RaApi? = null
     private val jobs = mutableMapOf<String, Job>()
 
@@ -81,6 +85,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var following by mutableStateOf<Load<List<FollowedUser>>?>(null); private set
     var consoles by mutableStateOf<Load<List<Console>>?>(null); private set
     var librarySort by mutableStateOf(LibrarySort.Recent); private set
+
+    // Search: every game across all consoles, filtered by [searchQuery].
+    var catalog by mutableStateOf<Load<List<ConsoleGame>>?>(null); private set
+    var catalogProgress by mutableStateOf<Pair<Int, Int>?>(null); private set
+    var searchQuery by mutableStateOf("")
+
+    // Settings
+    var enabledTabs by mutableStateOf(HomeTab.entries.toSet()); private set
+    val visibleTabs: List<HomeTab> get() = HomeTab.entries.filter { it in enabledTabs }
+    val settingsListState = LazyGridState()
+
+    /** Set when the RA site was opened to edit Want to Play; refresh on return. */
+    private var wantToPlayEdited = false
     private val listStates = HomeTab.entries.associateWith { LazyGridState() }
     fun listState(t: HomeTab) = listStates.getValue(t)
 
@@ -107,6 +124,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun isMe(name: String?) = name == null || name.equals(api?.user, ignoreCase = true)
 
     init {
+        Palette.accent = AccentColor.entries.find { it.name == prefs.accent } ?: AccentColor.Wasabi
+        prefs.tabs?.let { saved ->
+            val tabs = saved.split(',').mapNotNull { n -> HomeTab.entries.find { it.name == n } }.toSet()
+            if (tabs.isNotEmpty()) enabledTabs = tabs
+        }
+        tab = visibleTabs.first()
         val u = prefs.user
         val k = prefs.key
         if (u != null && k != null) {
@@ -138,7 +161,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 api = RaApi(p.user, k)
                 profile = Load.Ok(p)
                 clearLists()
-                tab = HomeTab.Playing
+                tab = visibleTabs.first()
                 stack.clear()
                 stack.add(Screen.Home)
                 ensureTab(tab)
@@ -165,7 +188,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun clearLists() {
         recent = null; library = null; unlocks = null; wantToPlay = null
-        suggested = null; following = null; consoles = null
+        suggested = null; following = null; consoles = null; catalog = null
         game = null; user = null; consoleGames = null
     }
 
@@ -179,8 +202,69 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun cycleTab(delta: Int) {
         if (screen != Screen.Home) return
-        val all = HomeTab.entries
-        selectTab(all[(tab.ordinal + delta + all.size) % all.size])
+        val all = visibleTabs
+        val i = all.indexOf(tab).coerceAtLeast(0)
+        selectTab(all[(i + delta + all.size) % all.size])
+    }
+
+    // ---- settings ----
+
+    fun openSettings() {
+        if (screen == Screen.Settings || screen == Screen.Login) return
+        stack.add(Screen.Settings)
+        focusTarget = "ac:${Palette.accent.name}"
+    }
+
+    fun setAccent(c: AccentColor) {
+        Palette.accent = c
+        prefs.accent = c.name
+    }
+
+    /** Turns a home tab on or off. At least one tab always stays on. */
+    fun toggleTab(t: HomeTab) {
+        val next = if (t in enabledTabs) enabledTabs - t else enabledTabs + t
+        if (next.isEmpty()) return
+        enabledTabs = next
+        prefs.tabs = HomeTab.entries.filter { it in next }.joinToString(",") { it.name }
+        if (tab !in next) {
+            tab = visibleTabs.first()
+            ensureTab(tab)
+        }
+    }
+
+    // ---- want to play ----
+
+    /** Whether game [id] is on your Want to Play list, or null if unknown. */
+    fun isWanted(id: Int): Boolean? = (wantToPlay as? Load.Ok)?.data?.any { it.id == id }
+
+    /** Called before opening the game's RetroAchievements page to edit the list. */
+    fun editingWantToPlay() {
+        wantToPlayEdited = true
+    }
+
+    /** Back from the browser: pick up Want to Play changes. */
+    fun onResume() {
+        if (!wantToPlayEdited) return
+        wantToPlayEdited = false
+        loadTab(HomeTab.WantToPlay)
+        if (suggested != null) loadTab(HomeTab.ForYou)
+    }
+
+    // ---- search ----
+
+    /** Catalog games whose title contains every typed word (max 300 shown). */
+    fun searchResults(): List<ConsoleGame> {
+        val all = (catalog as? Load.Ok)?.data.orEmpty()
+        val words = searchQuery.trim().lowercase().split(' ').filter { it.isNotEmpty() }
+        if (words.isEmpty()) return emptyList()
+        return all.asSequence().filter { g -> val t = g.title.lowercase(); words.all { it in t } }.take(300).toList()
+    }
+
+    fun searchMatchCount(): Int {
+        val all = (catalog as? Load.Ok)?.data.orEmpty()
+        val words = searchQuery.trim().lowercase().split(' ').filter { it.isNotEmpty() }
+        if (words.isEmpty()) return 0
+        return all.count { g -> val t = g.title.lowercase(); words.all { it in t } }
     }
 
     /** Opens a game; [of] shows someone else's progress in it. */
@@ -192,6 +276,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         game = null
         viewModelScope.launch { gameListState.scrollToItem(0) }
         loadGame(s)
+        // So the game screen can say whether it's on your Want to Play list.
+        if (wantToPlay == null) launchLoad("want", { wantToPlay = it }) { wantToPlay() }
     }
 
     fun openUser(name: String) {
@@ -235,7 +321,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             is Screen.Game -> loadGame(s)
             is Screen.User -> loadUser(s.name)
             is Screen.ConsoleGames -> loadConsole(s.id)
-            Screen.Login -> Unit
+            Screen.Settings, Screen.Login -> Unit
         }
     }
 
@@ -297,6 +383,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         is Screen.Game -> "game:${s.id}:${s.user}"
         is Screen.User -> "user:${s.name}"
         is Screen.ConsoleGames -> "console:${s.id}"
+        Screen.Settings -> "settings"
         else -> tab.name
     }
 
@@ -310,6 +397,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Unlocks -> (unlocks as? Load.Ok)?.data.orEmpty().map { "u:${it.achievementId}:${it.date}" }
         HomeTab.Following -> (following as? Load.Ok)?.data.orEmpty().map { "f:${it.user}" }
         HomeTab.Browse -> (consoles as? Load.Ok)?.data.orEmpty().map { "c:${it.id}" }
+        HomeTab.Search -> searchResults().map { "sg:${it.id}" }
         HomeTab.Profile -> listOf("signout")
     }
 
@@ -320,6 +408,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             v.recentGames.map { "ug:${it.id}" } + v.unlocks.map { "uu:${it.achievementId}:${it.date}" }
         }.orEmpty()
         is Screen.ConsoleGames -> filteredConsoleGames().map { "cg:${it.id}" }
+        Screen.Settings -> AccentColor.entries.map { "ac:${it.name}" } + HomeTab.entries.map { "tab:${it.name}" }
         Screen.Login -> emptyList()
     }
 
@@ -345,6 +434,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             HomeTab.Unlocks -> unlocks
             HomeTab.Following -> following
             HomeTab.Browse -> consoles
+            HomeTab.Search -> catalog
             HomeTab.Profile -> profile
         }
         if (state == null || state is Load.Err) loadTab(t) else restoreFocus(t)
@@ -358,6 +448,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Unlocks -> launchLoad("unlocks", { unlocks = it }, { restoreFocus(t) }) { recentUnlocks() }
         HomeTab.Following -> launchLoad("following", { following = it }, { restoreFocus(t) }) { following() }
         HomeTab.Browse -> launchLoad("consoles", { consoles = it }, { restoreFocus(t) }) { consoles() }
+        HomeTab.Search -> loadCatalog(force = catalog is Load.Ok)
         HomeTab.Profile -> loadProfile()
     }
 
@@ -365,6 +456,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun loadGame(s: Screen.Game) = launchLoad("game", { game = it }, { restoreFocusHere() }) {
         if (s.user != null) game(s.id, s.user) else game(s.id)
+    }
+
+    private fun loadCatalog(force: Boolean) = launchLoad("catalog", { catalog = it }, { catalogProgress = null; restoreFocus(HomeTab.Search) }) {
+        catalogStore.load(this, force) { done, total -> catalogProgress = done to total }
     }
 
     private fun loadUser(name: String) = launchLoad("user", { user = it }, { restoreFocusHere() }) { userView(name) }

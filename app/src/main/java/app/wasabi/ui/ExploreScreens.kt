@@ -317,3 +317,62 @@ private fun ConsoleGameRow(vm: AppViewModel, g: ConsoleGame) {
         }
     }
 }
+
+// ---------------------------------------------------------------- Search
+
+/** Search every game with achievements, across all consoles. */
+@Composable
+fun SearchTab(vm: AppViewModel) {
+    val focus = LocalFocusManager.current
+    Column(Modifier.fillMaxSize()) {
+        OutlinedTextField(
+            value = vm.searchQuery,
+            onValueChange = { vm.searchQuery = it },
+            placeholder = { Text("Search all games") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) }),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+        )
+        Column(Modifier.weight(1f)) {
+            when (val s = vm.catalog) {
+                null, Load.Loading -> {
+                    val p = vm.catalogProgress
+                    EmptyView(
+                        if (p == null || p.second == 0) "Loading the game list…"
+                        else "Downloading game lists: ${p.first} of ${p.second} consoles.\nThis only happens about once a week."
+                    )
+                }
+                is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
+                is Load.Ok -> {
+                    val results = vm.searchResults()
+                    when {
+                        vm.searchQuery.isBlank() -> EmptyView("Type a game name to search ${num(s.data.size)} games.")
+                        results.isEmpty() -> EmptyView("No games match \"${vm.searchQuery.trim()}\".")
+                        else -> CardGrid(vm.listState(HomeTab.Search)) {
+                            val total = vm.searchMatchCount()
+                            fullWidthItem("count") {
+                                Text(
+                                    if (total > results.size) "Showing ${num(results.size)} of ${num(total)}. Keep typing to narrow it down."
+                                    else "${num(total)} games",
+                                    color = Palette.Dim, fontSize = 12.sp,
+                                    modifier = Modifier.padding(start = 2.dp, top = 2.dp, bottom = 2.dp),
+                                )
+                            }
+                            items(results, key = { it.id }) { g ->
+                                FocusRow("sg:${g.id}", vm, onClick = { vm.openGame(g.id, g.title) }) {
+                                    Thumb(g.iconUrl, 44.dp)
+                                    Column(Modifier.weight(1f)) {
+                                        Text(g.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                        Text(g.console, color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text("${num(g.achievements)} achievements · ${num(g.points)} pts", color = Palette.Faint, fontSize = 11.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

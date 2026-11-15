@@ -12,11 +12,12 @@ the built-in buttons as well as touch.
 | --- | --- |
 | **Playing** | Your 50 most recently played games, with progress bars |
 | **For You** | Suggestions: games you're close to mastering, games people you follow are playing, picks from Want to Play |
-| **Want to Play** | Your RetroAchievements Want to Play list, with achievement counts and points |
+| **Want to Play** | Your RetroAchievements Want to Play list, with achievement counts and points. To add a game, press **Want to Play** on its screen: the Web API is read-only, so this opens the game's page on retroachievements.org, and the list reloads when you come back |
 | **Library** | Every game you've unlocked something in; sort by recent, progress or name |
 | **Unlocks** | Your unlocks from the last 30 days |
 | **Following** | Players you follow; open one to see their recent games, unlocks and per-game progress |
 | **Browse** | Pick a console and search its games with achievements |
+| **Search** | Search every game with achievements by name (game lists are cached for a week) |
 | **Profile** | Points, RetroPoints, member since, last seen (rich presence), sign out |
 
 Open any game to see its full achievement list: unlocked badges in color,
@@ -36,6 +37,7 @@ Wasabi green means hardcore and silver means softcore.
 | L1 / R1 | Previous / next tab |
 | Y | Sort the library, or filter a game's achievements |
 | X | Refresh |
+| Start | Settings: accent color (Wasabi, Teal, Sky, Violet, Pink, Coral, Gold) and which tabs are shown |
 
 A and B work through Android's standard gamepad mapping. If they feel
 swapped, change the A/B layout in the Retroid settings.
@@ -82,6 +84,8 @@ app/src/main/java/app/wasabi/
   ui/HomeScreen.kt       tab strip, Playing, Want to Play, Library, Unlocks, Profile
   ui/ExploreScreens.kt   For You, Following + user page, Browse + console search
   data/Suggest.kt        how suggestions are picked
+  data/Catalog.kt        all-games list for Search, cached on the device
+  ui/SettingsScreen.kt   accent color and tab choices
   ui/GameScreen.kt       achievement list
 ```
 

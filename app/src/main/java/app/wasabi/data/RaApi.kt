@@ -150,7 +150,7 @@ class RaApi(val user: String, private val key: String) {
         }.filter { it.id > 0 && it.name.isNotEmpty() }.distinctBy { it.id }.sortedBy { it.name.lowercase() }
 
     /** Every game on a console that has achievements, sorted by title. */
-    suspend fun consoleGames(consoleId: Int): List<ConsoleGame> =
+    suspend fun consoleGames(consoleId: Int, consoleName: String = ""): List<ConsoleGame> =
         arr("API_GetGameList.php", "i" to "$consoleId", "f" to "1").objects().map { j ->
             ConsoleGame(
                 id = j.optInt("ID"),
@@ -158,6 +158,7 @@ class RaApi(val user: String, private val key: String) {
                 iconUrl = media(j.str("ImageIcon")),
                 achievements = j.optInt("NumAchievements"),
                 points = j.optInt("Points"),
+                console = j.str("ConsoleName") ?: consoleName,
             )
         }.distinctBy { it.id }.sortedBy { it.title.lowercase() }
 
@@ -268,4 +269,14 @@ class Prefs(context: Context) {
     val key: String? get() = sp.getString("key", null)
     fun save(user: String, key: String) = sp.edit().putString("user", user).putString("key", key).apply()
     fun clearKey() = sp.edit().remove("key").apply()
+
+    /** Name of the chosen accent color. */
+    var accent: String?
+        get() = sp.getString("accent", null)
+        set(v) = sp.edit().putString("accent", v).apply()
+
+    /** Enabled home tabs as comma-separated names; null means all. */
+    var tabs: String?
+        get() = sp.getString("tabs", null)
+        set(v) = sp.edit().putString("tabs", v).apply()
 }

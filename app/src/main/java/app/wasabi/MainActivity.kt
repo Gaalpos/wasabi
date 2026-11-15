@@ -20,6 +20,7 @@ import app.wasabi.ui.HomeScreen
 import app.wasabi.ui.LoginScreen
 import app.wasabi.ui.Palette
 import app.wasabi.ui.Screen
+import app.wasabi.ui.SettingsScreen
 import app.wasabi.ui.UserScreen
 
 class MainActivity : ComponentActivity() {
@@ -28,6 +29,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { WasabiTheme { App(vm) } }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        vm.onResume()
     }
 
     /**
@@ -41,6 +47,7 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_BUTTON_R1 -> vm.cycleTab(1)
             KeyEvent.KEYCODE_BUTTON_Y -> vm.option()
             KeyEvent.KEYCODE_BUTTON_X -> vm.refresh()
+            KeyEvent.KEYCODE_BUTTON_START -> vm.openSettings()
             else -> return super.onKeyDown(keyCode, event)
         }
         return true
@@ -62,6 +69,7 @@ private fun App(vm: AppViewModel) {
             is Screen.Game -> GameScreen(vm, s)
             is Screen.User -> UserScreen(vm, s)
             is Screen.ConsoleGames -> ConsoleScreen(vm, s)
+            Screen.Settings -> SettingsScreen(vm)
         }
     }
 }

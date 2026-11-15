@@ -126,6 +126,7 @@ data class ConsoleGame(
     val iconUrl: String?,
     val achievements: Int,
     val points: Int,
+    val console: String = "",
 )
 
 /** A game people you follow have played recently and you haven't started. */
