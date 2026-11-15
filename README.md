@@ -16,8 +16,7 @@ the built-in buttons as well as touch.
 | **Library** | Every game you've unlocked something in; sort by recent, progress or name |
 | **Unlocks** | Your unlocks from the last 30 days |
 | **Following** | Players you follow; open one to see their recent games, unlocks and per-game progress |
-| **Browse** | **Most played games** (top 200 by players) and **Hacks** (ROM hacks, most played first), both searchable and sortable (**Y**: most players, A–Z, most achievements, most points, system), from the website's game list; then every system: pick one to search its games and sort them (**Y**: A–Z, most achievements, most points, recently updated). Press **Y** (or tap the star) to favorite a system; favorites stay at the top |
-| **Search** | Search every game with achievements by name (game lists are cached for a week) |
+| **Browse** | A search box for every game with achievements, across all systems (the game lists download on your first search and are cached for a week); below it **Most played games** (top 200 by players) and **Hacks** (ROM hacks, most played first), both searchable and sortable (**Y**: most players, A–Z, most achievements, most points, system), from the website's game list; then every system: pick one to search its games and sort them (**Y**: A–Z, most achievements, most points, recently updated). Press **Y** (or tap the star) to favorite a system; favorites stay at the top |
 | **Profile** | Points, RetroPoints, member since, last seen (rich presence), sign out |
 
 Open any game for its title, Want to Play button and your progress, plus
@@ -119,9 +118,9 @@ app/src/main/java/app/wasabi/
   ui/Components.kt       theme, focusable rows, pills, formatting
   ui/LoginScreen.kt
   ui/HomeScreen.kt       tab strip, Playing, Want to Play, Library, Unlocks, Profile
-  ui/ExploreScreens.kt   For You, Following + user page, Browse + console search
+  ui/ExploreScreens.kt   For You, Following + user page, Browse (search, lists, systems) + console screen
   data/Suggest.kt        how suggestions are picked
-  data/Catalog.kt        all-games list for Search, cached on the device
+  data/Catalog.kt        all-games list for Browse's search box, cached on the device
   ui/SettingsScreen.kt   updates, accent color and tab choices
   data/Updater.kt        in-app updates from GitHub releases
   ui/UpdateUi.kt         update banner and Settings row

@@ -82,7 +82,6 @@ fun HomeScreen(vm: AppViewModel) {
                     HomeTab.WantToPlay -> WantToPlayTab(vm)
                     HomeTab.Following -> FollowingTab(vm)
                     HomeTab.Browse -> BrowseTab(vm)
-                    HomeTab.Search -> SearchTab(vm)
                     HomeTab.Library -> LibraryTab(vm)
                     HomeTab.Unlocks -> UnlocksTab(vm)
                     HomeTab.Profile -> ProfileTab(vm, wide)
@@ -93,8 +92,11 @@ fun HomeScreen(vm: AppViewModel) {
                 HomeTab.Library -> HintBar("A" to "Open", "X" to "Want to Play", "Y" to "Sort", "L1/R1" to "Tabs", REFRESH to "Refresh")
                 HomeTab.Profile -> HintBar(REFRESH to "Refresh", "L1/R1" to "Tabs", "Start" to "Settings")
                 HomeTab.Settings -> HintBar("A" to "Change", "L1/R1" to "Tabs", REFRESH to "Check for updates")
-                HomeTab.Search -> HintBar("A" to "Open", "X" to "Want to Play", "L1/R1" to "Tabs", REFRESH to "Reload games")
-                HomeTab.Browse -> HintBar("A" to "Open", "Y" to "Favorite", "L1/R1" to "Tabs", REFRESH to "Refresh")
+                HomeTab.Browse -> if (vm.searchQuery.isNotBlank()) {
+                    HintBar("A" to "Open", "X" to "Want to Play", "L1/R1" to "Tabs", REFRESH to "Reload games")
+                } else {
+                    HintBar("A" to "Open", "Y" to "Favorite", "L1/R1" to "Tabs", REFRESH to "Refresh")
+                }
                 HomeTab.Playing -> HintBar("A" to "Open", "X" to "Want to Play", "Y" to "Remove", "L1/R1" to "Tabs", REFRESH to "Refresh")
                 HomeTab.Following -> HintBar("A" to "Open", "L1/R1" to "Tabs", REFRESH to "Refresh")
                 else -> HintBar("A" to "Open", "X" to "Want to Play", "L1/R1" to "Tabs", REFRESH to "Refresh")

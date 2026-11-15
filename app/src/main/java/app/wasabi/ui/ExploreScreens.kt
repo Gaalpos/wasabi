@@ -19,6 +19,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -250,8 +251,28 @@ fun UnlockRow(vm: AppViewModel, key: String, u: Unlock, onClick: () -> Unit) {
 
 // ---------------------------------------------------------------- Browse
 
+/** Browse: a search box for every game, above Most played, Hacks and the systems. */
 @Composable
 fun BrowseTab(vm: AppViewModel) {
+    Column(Modifier.fillMaxSize()) {
+        val searching = vm.searchQuery.isNotBlank()
+        SearchField(
+            value = vm.searchQuery,
+            onValueChange = { vm.onSearchQueryChange(it) },
+            placeholder = "Search all games",
+            vm = vm,
+            listState = if (searching) vm.searchListState else vm.listState(HomeTab.Browse),
+            firstKey = { if (vm.searchQuery.isBlank()) "list:MostPlayed" else vm.searchResults().firstOrNull()?.let { "sg:${it.id}" } },
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+        )
+        Box(Modifier.weight(1f)) {
+            if (searching) SearchResults(vm) else BrowseList(vm)
+        }
+    }
+}
+
+@Composable
+private fun BrowseList(vm: AppViewModel) {
     when (val s = vm.consoles) {
         null, Load.Loading -> LoadingView()
         is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
@@ -389,20 +410,10 @@ private fun ConsoleGameRow(vm: AppViewModel, g: ConsoleGame) {
 
 // ---------------------------------------------------------------- Search
 
-/** Search every game with achievements, across all consoles. */
+/** Search results across every system (from the cached catalog). */
 @Composable
-fun SearchTab(vm: AppViewModel) {
-    val focus = LocalFocusManager.current
+private fun SearchResults(vm: AppViewModel) {
     Column(Modifier.fillMaxSize()) {
-        SearchField(
-            value = vm.searchQuery,
-            onValueChange = { vm.searchQuery = it },
-            placeholder = "Search all games",
-            vm = vm,
-            listState = vm.listState(HomeTab.Search),
-            firstKey = { vm.searchResults().firstOrNull()?.let { "sg:${it.id}" } },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
-        )
         Column(Modifier.weight(1f)) {
             when (val s = vm.catalog) {
                 null, Load.Loading -> {
@@ -418,7 +429,7 @@ fun SearchTab(vm: AppViewModel) {
                     when {
                         vm.searchQuery.isBlank() -> EmptyView("Type a game name to search ${num(s.data.size)} games.")
                         results.isEmpty() -> EmptyView("No games match \"${vm.searchQuery.trim()}\".")
-                        else -> CardGrid(vm.listState(HomeTab.Search)) {
+                        else -> CardGrid(vm.searchListState) {
                             val total = vm.searchMatchCount()
                             fullWidthItem("count") {
                                 Text(

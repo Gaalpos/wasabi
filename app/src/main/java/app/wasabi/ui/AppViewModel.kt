@@ -71,7 +71,6 @@ enum class HomeTab(val label: String) {
     Unlocks("Unlocks"),
     Following("Following"),
     Browse("Browse"),
-    Search("Search"),
     Profile("Profile"),
     /** Always shown, last in the strip; Menu (Start) jumps here. */
     Settings("Settings"),
@@ -170,7 +169,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // Search: every game across all consoles, filtered by [searchQuery].
     var catalog by mutableStateOf<Load<List<ConsoleGame>>?>(null); private set
     var catalogProgress by mutableStateOf<Pair<Int, Int>?>(null); private set
-    var searchQuery by mutableStateOf("")
+    var searchQuery by mutableStateOf(""); private set
+    val searchListState = LazyGridState()
+
+    /** Browse's search box: the first search downloads the game catalog (cached for a week). */
+    fun onSearchQueryChange(q: String) {
+        searchQuery = q
+        if (q.isNotBlank() && (catalog == null || catalog is Load.Err)) loadCatalog(force = false)
+    }
 
     // Settings
     var enabledTabs by mutableStateOf(HomeTab.entries.toSet()); private set
@@ -789,7 +795,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() {
         when (val s = screen) {
-            Screen.Home -> { loadTab(tab); if (tab != HomeTab.Profile && tab != HomeTab.Settings) loadProfile() }
+            Screen.Home -> {
+                // In Browse with a search typed, refresh downloads the game lists again.
+                if (tab == HomeTab.Browse && searchQuery.isNotBlank()) loadCatalog(force = true) else loadTab(tab)
+                if (tab != HomeTab.Profile && tab != HomeTab.Settings) loadProfile()
+            }
             is Screen.Game -> {
                 loadGame(s)
                 val st = gameState(s)
@@ -965,8 +975,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Library -> sortedLibrary().map { "g:${it.id}" }
         HomeTab.Unlocks -> (unlocks as? Load.Ok)?.data.orEmpty().map { "u:${it.achievementId}:${it.date}" }
         HomeTab.Following -> (following as? Load.Ok)?.data.orEmpty().map { "f:${it.user}" }
-        HomeTab.Browse -> listOf("list:MostPlayed", "list:Hacks") + sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
-        HomeTab.Search -> searchResults().map { "sg:${it.id}" }
+        HomeTab.Browse -> if (searchQuery.isNotBlank()) searchResults().map { "sg:${it.id}" }
+            else listOf("list:MostPlayed", "list:Hacks") + sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
         HomeTab.Profile -> listOf("signout")
         HomeTab.Settings -> listOf("upd", "web") + controlsHelp().indices.map { "ctl:$it" } + RefreshButton.entries.map { "rb:${it.name}" } + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
             HomeTab.entries.filter { it != HomeTab.Settings }.map { "tab:${it.name}" }
@@ -1022,7 +1032,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             HomeTab.Unlocks -> unlocks
             HomeTab.Following -> following
             HomeTab.Browse -> consoles
-            HomeTab.Search -> catalog
             HomeTab.Profile -> profile
             HomeTab.Settings -> {
                 if (update == UpdateState.Idle || update is UpdateState.Failed) checkForUpdates(manual = true)
@@ -1041,7 +1050,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Unlocks -> launchLoad("unlocks", { unlocks = it }, { restoreFocus(t) }) { recentUnlocks() }
         HomeTab.Following -> launchLoad("following", { following = it }, { restoreFocus(t) }) { following() }
         HomeTab.Browse -> launchLoad("consoles", { consoles = it }, { restoreFocus(t) }) { consoles() }
-        HomeTab.Search -> loadCatalog(force = catalog is Load.Ok)
         HomeTab.Profile -> loadProfile()
         HomeTab.Settings -> checkForUpdates(manual = true)
     }
@@ -1052,7 +1060,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (s.user != null) game(s.id, s.user) else game(s.id)
     }
 
-    private fun loadCatalog(force: Boolean) = launchLoad("catalog", { catalog = it }, { catalogProgress = null; restoreFocus(HomeTab.Search) }) {
+    // No focus change when the catalog arrives: you're still typing in the search box.
+    private fun loadCatalog(force: Boolean) = launchLoad("catalog", { catalog = it }, { catalogProgress = null }) {
         catalogStore.load(this, force) { done, total -> catalogProgress = done to total }
     }
 
