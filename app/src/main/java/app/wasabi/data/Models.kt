@@ -80,7 +80,12 @@ data class Achievement(
     val earnedAt: String?,
     val earnedHcAt: String?,
     val numAwarded: Int,
+    val numAwardedHc: Int = 0,
+    /** RetroPoints: points weighted by how rare the achievement is. */
+    val trueRatio: Int = 0,
+    val author: String? = null,
 ) {
+    val missable get() = type == "missable"
     val unlocked get() = earnedAt != null || earnedHcAt != null
     val hardcore get() = earnedHcAt != null
     val unlockedAt get() = earnedHcAt ?: earnedAt
@@ -95,7 +100,23 @@ data class GameDetail(
     val players: Int,
     val award: String?,
     val achievements: List<Achievement>,
+    val titleImageUrl: String? = null,
+    val ingameImageUrl: String? = null,
+    val boxArtUrl: String? = null,
+    val developer: String? = null,
+    val publisher: String? = null,
+    val genre: String? = null,
+    /** YYYY-MM-DD, precise to [releasedPrecision] ("day", "month", "year"). */
+    val released: String? = null,
+    val releasedPrecision: String? = null,
+    val playersHardcore: Int = 0,
+    val playersSoftcore: Int = 0,
+    /** Your total time in the game, in seconds (0 when unknown). */
+    val playtimeSeconds: Long = 0,
 ) : GameProgress {
+    val retroPoints get() = achievements.sumOf { it.trueRatio }
+    val missableCount get() = achievements.count { it.missable }
+    val authors get() = achievements.mapNotNull { it.author }.distinct()
     override val total get() = achievements.size
     override val earned get() = achievements.count { it.unlocked }
     override val earnedHc get() = achievements.count { it.hardcore }

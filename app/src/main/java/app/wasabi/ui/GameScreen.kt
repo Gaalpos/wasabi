@@ -1,5 +1,16 @@
 package app.wasabi.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.Dp
+import coil3.compose.AsyncImage
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.List
@@ -67,7 +78,13 @@ private fun AchievementGrid(vm: AppViewModel, g: GameDetail, withHeader: Boolean
             fullWidthItem("none") { EmptyView("This game has no achievements yet.") }
         } else if (list.isEmpty()) {
             fullWidthItem("none") {
-                EmptyView(if (vm.achFilter == AchFilter.Locked) "All unlocked. Nice!" else "Nothing unlocked yet.")
+                EmptyView(
+                    when (vm.achFilter) {
+                        AchFilter.Locked -> "All unlocked. Nice!"
+                        AchFilter.Missable -> "No missable achievements in this game."
+                        else -> "Nothing unlocked yet."
+                    }
+                )
             }
         }
         items(list, key = { it.id }) { a -> AchievementRow(vm, a, g.players) }
@@ -101,6 +118,9 @@ private fun GameHeader(vm: AppViewModel, g: GameDetail, stacked: Boolean) {
             AwardTag(g.award)
         }
         (vm.screen as? Screen.Game)?.user?.let { Tag("$it's progress", Palette.Soft) }
+        GameMedia(g)
+        StatChips(g)
+        GameFacts(g)
         if (g.total > 0) {
             ProgressLine(g.fraction, g.isHardcore)
             Text(
@@ -160,28 +180,137 @@ private fun AchievementRow(vm: AppViewModel, a: Achievement, players: Int) {
                     fontSize = 12.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = 6.dp),
                 )
+                // RetroPoints, like the website's "(24)".
+                if (a.trueRatio > 0) Text(" (${num(a.trueRatio)})", color = Palette.Faint, fontSize = 11.sp)
             }
             Text(a.description, color = Palette.Dim.copy(alpha = textAlpha), fontSize = 12.sp)
-            Spacer(Modifier.height(2.dp))
+            if (players > 0) {
+                Spacer(Modifier.height(4.dp))
+                UnlockRateBar(a.numAwarded.toFloat() / players, a.numAwardedHc.toFloat() / players)
+                Text(
+                    pct(a.numAwarded, players) + " unlocked · " + pct(a.numAwardedHc, players) + " hardcore",
+                    color = Palette.Faint, fontSize = 10.sp,
+                )
+            }
             val details = buildList {
-                if (a.unlocked) {
-                    add("Unlocked ${ago(a.unlockedAt)}" + if (a.hardcore) "" else " (softcore)")
-                } else if (players > 0) {
-                    add(String.format(Locale.getDefault(), "%.1f%% of players", 100f * a.numAwarded / players))
-                }
+                if (a.unlocked) add("Unlocked ${ago(a.unlockedAt)}" + if (a.hardcore) "" else " (softcore)")
                 when (a.type) {
                     "missable" -> add("Missable")
                     "progression" -> add("Progression")
                     "win_condition" -> add("Win condition")
                 }
+                a.author?.let { add("by $it") }
             }
             if (details.isNotEmpty()) {
                 Text(
                     details.joinToString(" · "),
                     color = if (a.hardcore) Palette.Accent else Palette.Faint,
-                    fontSize = 11.sp,
+                    fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
             }
         }
+    }
+}
+
+private fun pct(part: Int, whole: Int) =
+    if (whole <= 0) "0%" else String.format(Locale.getDefault(), "%.1f%%", 100f * part / whole)
+
+/** All unlocks (silver) with the hardcore share on top (accent), like the website's bar. */
+@Composable
+private fun UnlockRateBar(all: Float, hardcore: Float) {
+    Box(
+        Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Palette.Track),
+    ) {
+        Box(Modifier.fillMaxHeight().fillMaxWidth(all.coerceIn(0f, 1f)).background(Palette.Soft.copy(alpha = 0.55f)))
+        Box(Modifier.fillMaxHeight().fillMaxWidth(hardcore.coerceIn(0f, 1f)).background(Palette.Accent))
+    }
+}
+
+/** Title screen, in-game screenshot and box art, scrolling sideways. */
+@Composable
+private fun GameMedia(g: GameDetail) {
+    val shots = listOfNotNull(g.titleImageUrl, g.ingameImageUrl)
+    if (shots.isEmpty() && g.boxArtUrl == null) return
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        shots.forEach { MediaImage(it, width = 112.dp) }
+        g.boxArtUrl?.let { MediaImage(it, width = 84.dp) }
+    }
+}
+
+@Composable
+private fun MediaImage(url: String, width: Dp) {
+    AsyncImage(
+        model = url,
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        modifier = Modifier.width(width).height(84.dp).clip(RoundedCornerShape(8.dp)).background(Palette.Surface),
+    )
+}
+
+/** Totals at a glance: achievements, points, RetroPoints, missables. */
+@Composable
+private fun StatChips(g: GameDetail) {
+    if (g.total == 0) return
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Tag("${num(g.total)} achievements", Palette.Text)
+        Tag("${num(g.points)} pts", Palette.Accent)
+        if (g.retroPoints > 0) Tag("${num(g.retroPoints)} RetroPoints", Palette.Soft)
+        if (g.missableCount > 0) Tag("${g.missableCount} missable", Palette.Error)
+    }
+}
+
+/** Developer, publisher, genre, release, players and your playtime. */
+@Composable
+private fun GameFacts(g: GameDetail) {
+    val facts = buildList {
+        g.developer?.let { add("Developer" to it) }
+        g.publisher?.let { add("Publisher" to it) }
+        g.genre?.let { add("Genre" to it) }
+        releaseText(g.released, g.releasedPrecision)?.let { add("Released" to it) }
+        if (g.players > 0) {
+            add("Players" to "${num(g.players)}" + if (g.playersHardcore > 0) " · ${num(g.playersHardcore)} hardcore" else "")
+        }
+        if (g.playtimeSeconds > 0) add("Playtime" to playtime(g.playtimeSeconds))
+        if (g.authors.isNotEmpty()) {
+            val a = g.authors
+            add("Made by" to if (a.size <= 3) a.joinToString(", ") else "${a.take(2).joinToString(", ")} and ${a.size - 2} others")
+        }
+    }
+    if (facts.isEmpty()) return
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Palette.Surface).padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        facts.forEach { (label, value) ->
+            Row {
+                Text(label, color = Palette.Dim, fontSize = 11.sp, modifier = Modifier.width(72.dp))
+                Text(value, color = Palette.Text, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+private fun releaseText(date: String?, precision: String?): String? {
+    val d = runCatching { LocalDate.parse(date?.take(10)) }.getOrNull() ?: return null
+    return when (precision) {
+        "year" -> "${d.year}"
+        "month" -> d.format(DateTimeFormatter.ofPattern("MMM yyyy", Locale.getDefault()))
+        else -> d.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+    }
+}
+
+private fun playtime(seconds: Long): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    return when {
+        h > 0 -> "${h}h ${m}m"
+        m > 0 -> "${m}m"
+        else -> "under a minute"
     }
 }

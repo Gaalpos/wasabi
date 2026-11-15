@@ -79,7 +79,7 @@ sealed interface UpdateState {
 }
 
 enum class LibrarySort(val label: String) { Recent("Recent"), Progress("Progress"), Name("A–Z") }
-enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked("Unlocked") }
+enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked("Unlocked"), Missable("Missable") }
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
@@ -561,6 +561,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             AchFilter.All -> true
             AchFilter.Locked -> !it.unlocked
             AchFilter.Unlocked -> it.unlocked
+            AchFilter.Missable -> it.missable
         }
     }
 

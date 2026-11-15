@@ -20,10 +20,13 @@ the built-in buttons as well as touch.
 | **Search** | Search every game with achievements by name (game lists are cached for a week) |
 | **Profile** | Points, RetroPoints, member since, last seen (rich presence), sign out |
 
-Open any game to see its full achievement list: unlocked badges in color,
-locked ones grayed out, unlock dates, how many players have each one, and
-missable/progression tags. You can filter the list to show all, locked or
-unlocked achievements.
+Open any game to see everything about it: the title screen, an in-game
+screenshot and box art; developer, publisher, genre and release date; how
+many people play it (and how many in hardcore); your total playtime; and its
+totals in achievements, points, RetroPoints and missables. Each achievement
+shows its badge (grayed out while locked), points and RetroPoints, an unlock
+rate bar with the hardcore share, its author, and missable/progression tags.
+Press **Y** to show all, locked, unlocked or only missable achievements.
 
 Wasabi green means hardcore and silver means softcore.
 

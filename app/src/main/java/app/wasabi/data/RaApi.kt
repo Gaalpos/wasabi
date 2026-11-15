@@ -178,6 +178,9 @@ class RaApi(val user: String, private val key: String) {
                 earnedAt = a.str("DateEarned"),
                 earnedHcAt = a.str("DateEarnedHardcore"),
                 numAwarded = a.optInt("NumAwarded"),
+                numAwardedHc = a.optInt("NumAwardedHardcore"),
+                trueRatio = a.optInt("TrueRatio"),
+                author = a.str("Author"),
             )
         }?.sortedWith(compareBy({ it.order }, { it.id }))?.toList().orEmpty()
 
@@ -189,6 +192,17 @@ class RaApi(val user: String, private val key: String) {
             players = j.optInt("NumDistinctPlayers"),
             award = j.str("HighestAwardKind"),
             achievements = achievements,
+            titleImageUrl = media(j.str("ImageTitle")),
+            ingameImageUrl = media(j.str("ImageIngame")),
+            boxArtUrl = media(j.str("ImageBoxArt")),
+            developer = j.str("Developer"),
+            publisher = j.str("Publisher"),
+            genre = j.str("Genre"),
+            released = j.str("Released"),
+            releasedPrecision = j.str("ReleasedAtGranularity"),
+            playersHardcore = j.optInt("NumDistinctPlayersHardcore"),
+            playersSoftcore = j.optInt("NumDistinctPlayersCasual"),
+            playtimeSeconds = j.optLong("UserTotalPlaytime"),
         )
     }
 
