@@ -368,6 +368,13 @@ fun ConsoleScreen(vm: AppViewModel, screen: Screen.ConsoleGames) {
                 icon = Icons.AutoMirrored.Rounded.List,
                 focusKey = "csort", vm = vm,
             )
+            if (vm.consoleSort == ConsoleSort.Players) {
+                when (val p = vm.consolePlayers) {
+                    null, Load.Loading -> Text("Loading player counts…", color = Palette.Dim, fontSize = 11.sp, modifier = Modifier.padding(start = 10.dp))
+                    is Load.Err -> Text(p.message, color = Palette.Error, fontSize = 11.sp, modifier = Modifier.padding(start = 10.dp))
+                    is Load.Ok -> Unit
+                }
+            }
         }
         SearchField(
             value = vm.consoleQuery,
@@ -402,7 +409,11 @@ private fun ConsoleGameRow(vm: AppViewModel, g: ConsoleGame) {
         Thumb(g.iconUrl, 44.dp)
         Column(Modifier.weight(1f)) {
             Text(g.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text("${num(g.achievements)} achievements · ${num(g.points)} pts", color = Palette.Dim, fontSize = 11.sp)
+            val players = vm.consolePlayersOf(g.id)
+            Text(
+                "${num(g.achievements)} achievements · ${num(g.points)} pts" + if (players != null && players > 0) " · ${num(players)} players" else "",
+                color = Palette.Dim, fontSize = 11.sp,
+            )
         }
         WantToggle(vm, g.id)
     }

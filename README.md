@@ -16,7 +16,7 @@ the built-in buttons as well as touch.
 | **Library** | Every game you've unlocked something in; sort by recent, progress or name |
 | **Unlocks** | Your unlocks from the last 30 days |
 | **Following** | Players you follow; open one to see their recent games, unlocks and per-game progress |
-| **Browse** | A search box for every game with achievements, across all systems (the game lists download on your first search and are cached for a week); below it **Most played games** (top 200 by players) and **Hacks** (ROM hacks, most played first), both searchable and sortable (**Y**: most players, A–Z, most achievements, most points, system), from the website's game list; then every system: pick one to search its games and sort them (**Y**: A–Z, most achievements, most points, recently updated). Press **Y** (or tap the star) to favorite a system; favorites stay at the top |
+| **Browse** | A search box for every game with achievements, across all systems (the game lists download on your first search and are cached for a week); below it **Most played games** (top 200 by players) and **Hacks** (ROM hacks, most played first), both searchable and sortable (**Y**: most players, A–Z, most achievements, most points, system), from the website's game list; then every system: pick one to search its games and sort them (**Y**: A–Z, most players, most achievements, most points, recently updated; player counts come from the website's per-system list, top 500). Press **Y** (or tap the star) to favorite a system; favorites stay at the top |
 | **Profile** | Points, RetroPoints, member since, last seen (rich presence), sign out |
 
 Open any game for its title, Want to Play button and your progress, plus

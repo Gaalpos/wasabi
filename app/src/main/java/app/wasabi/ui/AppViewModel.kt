@@ -124,6 +124,7 @@ enum class GameListKind(val title: String, val subtitle: String, val query: Stri
 /** Sort orders for a system's game list. */
 enum class ConsoleSort(val label: String) {
     Name("A–Z"),
+    Players("Most players"),
     Achievements("Most achievements"),
     Points("Most points"),
     Updated("Recently updated"),
@@ -264,6 +265,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var consoleGames by mutableStateOf<Load<List<ConsoleGame>>?>(null); private set
     var consoleQuery by mutableStateOf("")
     var consoleSort by mutableStateOf(ConsoleSort.Name); private set
+
+    /** Player counts for the open system's games (top 500), for the Most players sort. */
+    var consolePlayers by mutableStateOf<Load<Map<Int, Int>>?>(null); private set
+    private var consolePlayersFor = 0
     val consoleListState = LazyGridState()
 
     // D-pad focus: the key of the row that should grab focus next, and the
@@ -791,12 +796,54 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         focusTarget = filteredGameList().firstOrNull()?.let { "gl:${it.id}" } ?: "lsort"
     }
 
+    /** Player counts of a system's game, if loaded. */
+    fun consolePlayersOf(id: Int): Int? = (consolePlayers as? Load.Ok)?.data?.get(id)
+
+    /**
+     * Loads the open system's player counts from the website's per-system
+     * game list (/internal-api/system/{id}/games, most played first, top 500),
+     * in the hidden browser.
+     */
+    private fun ensureConsolePlayers() {
+        val s = screen as? Screen.ConsoleGames ?: return
+        if (consolePlayersFor == s.id && (consolePlayers is Load.Ok || consolePlayers is Load.Loading)) return
+        if (api == null) return
+        consolePlayersFor = s.id
+        consolePlayers = Load.Loading
+        val nonce = System.nanoTime().toString()
+        pageCallbacks[nonce] = { json ->
+            val parsed = json?.let { runCatching { RaApi.parseGameList(it) }.getOrNull() }
+            if (consolePlayersFor == s.id) {
+                consolePlayers = when {
+                    parsed?.first != null -> Load.Ok(parsed.first!!.associate { it.id to it.players })
+                    parsed != null -> Load.Err("Couldn't load player counts (error ${parsed.second}).")
+                    else -> Load.Err("Couldn't load player counts from retroachievements.org.")
+                }
+                if (screen == s && consoleSort == ConsoleSort.Players) {
+                    viewModelScope.launch { consoleListState.scrollToItem(0) }
+                    focusTarget = filteredConsoleGames().firstOrNull()?.let { "cg:${it.id}" }
+                }
+            }
+        }
+        pageJob = PageJob(
+            "${RaWeb.ORIGIN}/robots.txt", nonce,
+            RaWeb.gameListScript(nonce, "sort=-playersTotal&page%5Bsize%5D=100", 5, "/internal-api/system/${s.id}/games"),
+        )
+        viewModelScope.launch {
+            delay(45_000)
+            if (pageCallbacks.containsKey(nonce)) onPageData(nonce, null)
+        }
+    }
+
     fun openConsole(c: Console) {
         stack.add(Screen.ConsoleGames(c.id, c.name))
         consoleGames = null
         consoleQuery = ""
         viewModelScope.launch { consoleListState.scrollToItem(0) }
         loadConsole(c.id)
+        consolePlayers = null
+        consolePlayersFor = 0
+        if (consoleSort == ConsoleSort.Players) ensureConsolePlayers()
     }
 
     /** Returns true when a screen was popped. */
@@ -834,7 +881,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             is Screen.User -> loadUser(s.name)
-            is Screen.ConsoleGames -> loadConsole(s.id)
+            is Screen.ConsoleGames -> {
+                loadConsole(s.id)
+                if (consoleSort == ConsoleSort.Players) {
+                    consolePlayersFor = 0
+                    ensureConsolePlayers()
+                }
+            }
             is Screen.GameList -> loadGameList(s.kind)
             is Screen.Images, Screen.WebSignIn, Screen.Login -> Unit
         }
@@ -967,6 +1020,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val matches = if (words.isEmpty()) all else all.filter { g -> val t = g.title.lowercase(); words.all { it in t } }
         return when (consoleSort) {
             ConsoleSort.Name -> matches.sortedBy { it.title.lowercase() }
+            ConsoleSort.Players -> {
+                val players = (consolePlayers as? Load.Ok)?.data.orEmpty()
+                matches.sortedWith(compareByDescending<ConsoleGame> { players[it.id] ?: 0 }.thenBy { it.title.lowercase() })
+            }
             ConsoleSort.Achievements -> matches.sortedWith(compareByDescending<ConsoleGame> { it.achievements }.thenBy { it.title.lowercase() })
             ConsoleSort.Points -> matches.sortedWith(compareByDescending<ConsoleGame> { it.points }.thenBy { it.title.lowercase() })
             ConsoleSort.Updated -> matches.sortedWith(compareByDescending<ConsoleGame> { it.updated.orEmpty() }.thenBy { it.title.lowercase() })
@@ -976,6 +1033,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Y on a system's game list: next sort order, back to the top. */
     fun cycleConsoleSort() {
         consoleSort = ConsoleSort.entries[(consoleSort.ordinal + 1) % ConsoleSort.entries.size]
+        if (consoleSort == ConsoleSort.Players) ensureConsolePlayers()
         viewModelScope.launch { consoleListState.scrollToItem(0) }
         focusTarget = filteredConsoleGames().firstOrNull()?.let { "cg:${it.id}" } ?: "csort"
     }

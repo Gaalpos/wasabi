@@ -111,12 +111,12 @@ object RaWeb {
      * [pages] pages. Reports {"games":[...]} or {"status":N} through
      * WasabiBridge.data(nonce, json), or "" on failure.
      */
-    fun gameListScript(nonce: String, query: String, pages: Int): String = """
+    fun gameListScript(nonce: String, query: String, pages: Int, path: String = "/internal-api/games"): String = """
         (async function () {
           try {
             var all = [];
             for (var page = 1; page <= $pages; page++) {
-              var r = await fetch('/internal-api/games?$query&page%5Bnumber%5D=' + page, {
+              var r = await fetch('$path?$query&page%5Bnumber%5D=' + page, {
                 credentials: 'same-origin',
                 headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
               });
