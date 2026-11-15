@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Wasabi</string>
+    <string name="widget_description">Your RetroAchievements points and what you're playing</string>
 </resources>

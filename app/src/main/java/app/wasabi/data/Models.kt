@@ -11,6 +11,9 @@ data class Profile(
     val softPoints: Int,
     val truePoints: Int,
     val memberSince: String?,
+    /** Site rank (hardcore points), if ranked. */
+    val rank: Int? = null,
+    val totalRanked: Int = 0,
 )
 
 /** Progress numbers shared by every "game with progress" row. */
@@ -188,6 +191,9 @@ data class RelatedGame(
 
 /** Series, hubs and similar games for one game (website game page + API v2). */
 data class GameExtras(
+    /** Median time to beat in seconds (softcore, hardcore), if the site has it. */
+    val timeToBeat: Int? = null,
+    val timeToBeatHardcore: Int? = null,
     val series: HubRef?,
     val hubs: List<HubRef>,
     val similar: List<RelatedGame>,
@@ -209,3 +215,74 @@ data class CompareEntry(
     val shown get() = maxOf(earned, earnedHc)
     val fraction get() = if (total > 0) shown.toFloat() / total else 0f
 }
+
+/** One badge on the awards wall. */
+data class AwardItem(
+    /** "mastered", "completed", "beaten-hardcore", "beaten-softcore", "event" or "site". */
+    val kind: String,
+    val title: String,
+    val console: String,
+    val iconUrl: String?,
+    val date: String?,
+    /** The game, for game awards. */
+    val gameId: Int?,
+)
+
+data class Awards(
+    val mastered: Int,
+    val completed: Int,
+    val beatenHardcore: Int,
+    val beatenSoftcore: Int,
+    val events: Int,
+    val site: Int,
+    val items: List<AwardItem>,
+)
+
+/** A game leaderboard with its leader and, if you have one, your entry. */
+data class LeaderboardRow(
+    val id: Int,
+    val title: String,
+    val description: String,
+    val leader: String?,
+    val leaderScore: String?,
+    val myRank: Int?,
+    val myScore: String?,
+)
+
+data class AchievementUnlock(val user: String, val date: String?, val hardcore: Boolean)
+data class Comment(val user: String, val date: String?, val text: String)
+
+/** Who unlocked an achievement recently, and what people say about it. */
+data class AchievementInfo(
+    val unlocks: Int,
+    val unlocksHardcore: Int,
+    val players: Int,
+    val recent: List<AchievementUnlock>,
+    val comments: List<Comment>,
+)
+
+/** Achievement of the Week. */
+data class WeeklyAchievement(
+    val id: Int,
+    val title: String,
+    val description: String,
+    val points: Int,
+    val badgeUrl: String?,
+    val gameId: Int,
+    val gameTitle: String,
+    val console: String,
+    val unlocks: Int,
+    val players: Int,
+)
+
+/** A row in a community feed (sets in development, recent masteries). */
+data class FeedItem(
+    val key: String,
+    val gameId: Int,
+    val title: String,
+    val console: String,
+    val iconUrl: String?,
+    val detail: String,
+    val user: String?,
+    val date: String?,
+)

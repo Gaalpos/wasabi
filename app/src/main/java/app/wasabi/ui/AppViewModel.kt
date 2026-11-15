@@ -10,7 +10,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.wasabi.data.Catalog
 import app.wasabi.data.CompareEntry
+import app.wasabi.data.Achievement
+import app.wasabi.data.AchievementInfo
+import app.wasabi.data.Awards
 import app.wasabi.data.Console
+import app.wasabi.data.FeedItem
+import app.wasabi.data.LeaderboardRow
+import app.wasabi.data.WeeklyAchievement
 import app.wasabi.data.ConsoleGame
 import app.wasabi.data.FollowedUser
 import app.wasabi.data.GameExtras
@@ -50,6 +56,14 @@ sealed interface Screen {
     data object WebSignIn : Screen
     /** A website game list: most played, hacks. */
     data class GameList(val kind: GameListKind) : Screen
+    /** Your awards wall. */
+    data object Awards : Screen
+    /** Your unlock stats for the last 90 days. */
+    data object Stats : Screen
+    /** One achievement: recent unlockers and comments. */
+    data class AchievementDetail(val achievement: Achievement, val gameTitle: String, val players: Int) : Screen
+    /** Community feeds: sets in development, recent masteries. */
+    data class Community(val kind: CommunityKind) : Screen
     /** A game's images full screen, as (url, label), starting at [index]. */
     data class Images(val images: List<Pair<String, String>>, val index: Int) : Screen
 }
@@ -93,6 +107,7 @@ enum class GameTab(val label: String) {
     Series("Series"),
     Similar("Similar"),
     Compare("Compare"),
+    Leaderboards("Leaderboards"),
 }
 
 /** Everything one game screen shows; each open game screen has its own. */
@@ -103,6 +118,7 @@ class GameState {
     var extras by mutableStateOf<Load<GameExtras>?>(null)
     var series by mutableStateOf<Load<List<RelatedGame>>?>(null)
     var compare by mutableStateOf<Load<List<CompareEntry>>?>(null)
+    var leaderboards by mutableStateOf<Load<List<LeaderboardRow>>?>(null)
     val listStates = GameTab.entries.associateWith { LazyGridState() }
 }
 
@@ -120,6 +136,18 @@ enum class GameListKind(val title: String, val subtitle: String, val query: Stri
         "sort=-playersTotal&page%5Bsize%5D=100&filter%5Bgame-type%5D=hack", 5,
     ),
 }
+
+/** Community lists reachable from Browse. */
+enum class CommunityKind(val title: String, val subtitle: String) {
+    ComingSoon("Coming soon", "New achievement sets being made right now"),
+    RecentMasteries("Recent masteries", "Who just mastered or beat what, across RetroAchievements"),
+}
+
+/** Following tab: who you follow, or who follows you. */
+enum class FollowMode(val label: String) { Following("Following"), Followers("Followers") }
+
+/** Awards wall filter. */
+enum class AwardFilter(val label: String) { All("All"), Mastered("Mastered"), Beaten("Beaten"), Events("Events & site") }
 
 /** Sort orders for a system's game list. */
 enum class ConsoleSort(val label: String) {
@@ -188,6 +216,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Games hidden from Playing, and the last one hidden (for Undo). */
     var hiddenPlaying by mutableStateOf(prefs.hiddenPlaying); private set   // id -> last played when hidden
     var lastHidden by mutableStateOf<RecentGame?>(null); private set
+
+    // Profile extras
+    var awards by mutableStateOf<Load<Awards>?>(null); private set
+    var awardFilter by mutableStateOf(AwardFilter.All); private set
+    val awardsListState = LazyGridState()
+    var stats by mutableStateOf<Load<List<Unlock>>?>(null); private set
+    val statsListState = LazyGridState()
+
+    // Following tab: following or followers
+    var followMode by mutableStateOf(FollowMode.Following); private set
+    var followers by mutableStateOf<Load<List<FollowedUser>>?>(null); private set
+
+    // Achievement details
+    var achievementInfo by mutableStateOf<Load<AchievementInfo>?>(null); private set
+    val achievementListState = LazyGridState()
+
+    // For You: Achievement of the Week
+    var weekly by mutableStateOf<Load<WeeklyAchievement>?>(null); private set
+
+    // Community lists
+    var feed by mutableStateOf<Load<List<FeedItem>>?>(null); private set
+    val feedListState = LazyGridState()
 
     /** Favorite systems, listed first in Browse. */
     var favoriteConsoles by mutableStateOf(prefs.favoriteConsoles); private set
@@ -280,6 +330,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun isMe(name: String?) = name == null || name.equals(api?.user, ignoreCase = true)
 
     init {
+        RaApi.cacheDir = app.cacheDir   // offline mode: saved answers live here
         Palette.accent = AccentColor.entries.find { it.name == prefs.accent } ?: AccentColor.Wasabi
         Controls.refresh = RefreshButton.entries.find { it.name == prefs.refreshButton } ?: RefreshButton.R2
         prefs.tabs?.let { saved ->
@@ -340,6 +391,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         jobs.values.forEach { it.cancel() }
         webSignOut()
         prefs.clearKey()
+        prefs.saveWidget(null, -1, null)
+        app.wasabi.WasabiWidget.refresh(getApplication())
+        app.wasabi.data.Background.schedule(getApplication())
         api = null
         profile = Load.Loading
         clearLists()
@@ -393,6 +447,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             GameTab.Series -> if (st.extras !is Load.Ok) loadExtras(s)
             GameTab.Similar -> if (st.extras !is Load.Ok) loadExtras(s)
             GameTab.Compare -> if (st.compare == null || st.compare is Load.Err) loadCompare(s)
+            GameTab.Leaderboards -> if (st.leaderboards == null || st.leaderboards is Load.Err) loadLeaderboards(s)
+            GameTab.Info -> if (st.extras == null || st.extras is Load.Err) loadExtras(s)   // for time to beat
             else -> Unit
         }
         restoreFocusHere(preferContent = true)
@@ -433,6 +489,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         pageCallbacks.remove(nonce)?.invoke(json?.takeIf { it.isNotBlank() })
     }
 
+    private fun loadLeaderboards(s: Screen.Game) {
+        val st = gameState(s)
+        launchLoad("leaderboards:${s.key}", { st.leaderboards = it }, { if (screen == s) restoreFocusHere(preferContent = true) }) { leaderboards(s.id) }
+    }
+
     private fun loadCompare(s: Screen.Game) {
         val st = gameState(s)
         launchLoad("compare:${s.key}", { st.compare = it }, { if (screen == s) restoreFocusHere(preferContent = true) }) {
@@ -451,6 +512,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         focusTarget = "upd"
     }
 
+    /** Background notifications for unlocks and friends' masteries. */
+    var notificationsOn by mutableStateOf(prefs.notifications); private set
+
+    fun setNotifications(on: Boolean) {
+        notificationsOn = on
+        prefs.notifications = on
+        if (on) {
+            // Start fresh: the first check only records where things stand.
+            prefs.lastUnlockSeen = ""
+            prefs.lastAwardSeen = ""
+            if (following == null) loadTab(HomeTab.Following)
+        }
+        app.wasabi.data.Background.schedule(getApplication())
+    }
+
     fun setRefreshButton(b: RefreshButton) {
         Controls.refresh = b
         prefs.refreshButton = b.name
@@ -464,6 +540,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val id = when (val s = screen) {
             is Screen.Game -> s.id
             Screen.Home, is Screen.User, is Screen.ConsoleGames, is Screen.GameList -> focusedGameId()
+            is Screen.Community -> lastFocus[focusScope()]?.removePrefix("fd:")?.let { k -> (feed as? Load.Ok)?.data?.firstOrNull { it.key == k }?.gameId }
+            Screen.Awards -> lastFocus[focusScope()]?.removePrefix("aw:")?.toIntOrNull()?.let { filteredAwards().getOrNull(it)?.gameId }
+            is Screen.AchievementDetail -> null
             else -> null
         } ?: return
         toggleWantToPlay(id)
@@ -837,6 +916,61 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun openAwards() {
+        stack.add(Screen.Awards)
+        awardFilter = AwardFilter.All
+        viewModelScope.launch { awardsListState.scrollToItem(0) }
+        launchLoad("awards", { awards = it }, { if (screen == Screen.Awards) restoreFocusHere() }) { awards() }
+    }
+
+    fun openStats() {
+        stack.add(Screen.Stats)
+        viewModelScope.launch { statsListState.scrollToItem(0) }
+        val now = System.currentTimeMillis() / 1000
+        launchLoad("stats", { stats = it }, { if (screen == Screen.Stats) restoreFocusHere() }) { earnedBetween(now - 91L * 24 * 3600, now) }
+    }
+
+    fun openAchievement(a: Achievement, gameTitle: String, players: Int) {
+        stack.add(Screen.AchievementDetail(a, gameTitle, players))
+        achievementInfo = null
+        viewModelScope.launch { achievementListState.scrollToItem(0) }
+        launchLoad("achievement", { achievementInfo = it }) { achievementInfo(a.id) }
+    }
+
+    fun openCommunity(kind: CommunityKind) {
+        stack.add(Screen.Community(kind))
+        feed = null
+        viewModelScope.launch { feedListState.scrollToItem(0) }
+        loadFeed(kind)
+    }
+
+    private fun loadFeed(kind: CommunityKind) = launchLoad("feed", { feed = it }, { if (screen == Screen.Community(kind)) restoreFocusHere() }) {
+        when (kind) {
+            CommunityKind.ComingSoon -> comingSoon()
+            CommunityKind.RecentMasteries -> recentGameAwards()
+        }
+    }
+
+    /** Y on Following: switch between who you follow and who follows you. */
+    fun toggleFollowMode() {
+        followMode = if (followMode == FollowMode.Following) FollowMode.Followers else FollowMode.Following
+        if (followMode == FollowMode.Followers && (followers == null || followers is Load.Err)) {
+            launchLoad("followers", { followers = it }, { restoreFocus(HomeTab.Following) }) { followers() }
+        } else {
+            restoreFocus(HomeTab.Following)
+        }
+    }
+
+    /** Awards shown with the current filter. */
+    fun filteredAwards() = (awards as? Load.Ok)?.data?.items.orEmpty().filter {
+        when (awardFilter) {
+            AwardFilter.All -> true
+            AwardFilter.Mastered -> it.kind == "mastered" || it.kind == "completed"
+            AwardFilter.Beaten -> it.kind.startsWith("beaten")
+            AwardFilter.Events -> it.kind == "event" || it.kind == "site"
+        }
+    }
+
     fun openConsole(c: Console) {
         stack.add(Screen.ConsoleGames(c.id, c.name))
         consoleGames = null
@@ -859,6 +993,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             is Screen.User -> { jobs["user"]?.cancel(); user = null }
             is Screen.ConsoleGames -> { jobs["console"]?.cancel(); consoleGames = null }
             is Screen.GameList -> gameList = null
+            Screen.Awards -> awards = null
+            Screen.Stats -> stats = null
+            is Screen.AchievementDetail -> achievementInfo = null
+            is Screen.Community -> feed = null
             Screen.WebSignIn -> afterSignIn = null
             else -> Unit
         }
@@ -879,6 +1017,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 when (st.tab) {
                     GameTab.Series, GameTab.Similar -> loadExtras(s)
                     GameTab.Compare -> loadCompare(s)
+                    GameTab.Leaderboards -> loadLeaderboards(s)
+                    GameTab.Info -> loadExtras(s)
                     else -> Unit
                 }
             }
@@ -891,6 +1031,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             is Screen.GameList -> loadGameList(s.kind)
+            Screen.Awards -> { stack.removeAt(stack.lastIndex); openAwards() }
+            Screen.Stats -> { stack.removeAt(stack.lastIndex); openStats() }
+            is Screen.AchievementDetail -> launchLoad("achievement", { achievementInfo = it }) { achievementInfo(s.achievement.id) }
+            is Screen.Community -> loadFeed(s.kind)
             is Screen.Images, Screen.WebSignIn, Screen.Login -> Unit
         }
     }
@@ -906,6 +1050,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     toggleFavoriteConsole(it)
                     focusTarget = "c:$it"
                 }
+            } else if (tab == HomeTab.Following) {
+                toggleFollowMode()
             } else if (tab == HomeTab.Library) {
                 librarySort = LibrarySort.entries[(librarySort.ordinal + 1) % LibrarySort.entries.size]
                 viewModelScope.launch { listState(HomeTab.Library).scrollToItem(0) }
@@ -913,6 +1059,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             is Screen.ConsoleGames -> cycleConsoleSort()
             is Screen.GameList -> cycleListSort()
+            Screen.Awards -> {
+                awardFilter = AwardFilter.entries[(awardFilter.ordinal + 1) % AwardFilter.entries.size]
+                viewModelScope.launch { awardsListState.scrollToItem(0) }
+                focusTarget = if (filteredAwards().isNotEmpty()) "aw:0" else "afilter"
+            }
             is Screen.Game -> currentGame?.takeIf { it.tab == GameTab.Achievements }?.let { st ->
                 st.filter = AchFilter.entries[(st.filter.ordinal + 1) % AchFilter.entries.size]
                 viewModelScope.launch { st.listStates.getValue(GameTab.Achievements).scrollToItem(0) }
@@ -1047,22 +1198,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         is Screen.User -> "user:${s.name}"
         is Screen.ConsoleGames -> "console:${s.id}"
         is Screen.GameList -> "list:${s.kind}"
+        Screen.Awards -> "awards"
+        Screen.Stats -> "stats"
+        is Screen.AchievementDetail -> "ach:${s.achievement.id}"
+        is Screen.Community -> "feed:${s.kind}"
         else -> tab.name
     }
 
     private fun keysFor(t: HomeTab): List<String> = when (t) {
         HomeTab.Playing -> visibleRecent().map { "g:${it.id}" }
-        HomeTab.ForYou -> (suggested as? Load.Ok)?.data?.let { s ->
+        HomeTab.ForYou -> (if (weekly is Load.Ok) listOf("aotw") else emptyList()) + (suggested as? Load.Ok)?.data?.let { s ->
             s.almostDone.map { "s:a:${it.id}" } + s.friendsPlaying.map { "s:f:${it.game.id}" } + s.fromWantToPlay.map { "s:w:${it.id}" }
         }.orEmpty()
         HomeTab.WantToPlay -> (wantToPlay as? Load.Ok)?.data.orEmpty().map { "w:${it.id}" }
         HomeTab.Library -> sortedLibrary().map { "g:${it.id}" }
         HomeTab.Unlocks -> (unlocks as? Load.Ok)?.data.orEmpty().map { "u:${it.achievementId}:${it.date}" }
-        HomeTab.Following -> (following as? Load.Ok)?.data.orEmpty().map { "f:${it.user}" }
+        HomeTab.Following -> listOf("fmode") + (if (followMode == FollowMode.Following) following else followers)
+            .let { (it as? Load.Ok)?.data.orEmpty().map { u -> "f:${u.user}" } }
         HomeTab.Browse -> if (searchQuery.isNotBlank()) searchResults().map { "sg:${it.id}" }
             else listOf("list:MostPlayed", "list:Hacks") + sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
-        HomeTab.Profile -> listOf("signout")
-        HomeTab.Settings -> listOf("upd", "web") + controlsHelp().indices.map { "ctl:$it" } + RefreshButton.entries.map { "rb:${it.name}" } + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
+        HomeTab.Profile -> listOf("p:awards", "p:stats", "signout")
+        HomeTab.Settings -> listOf("upd", "web", "notif") + controlsHelp().indices.map { "ctl:$it" } + RefreshButton.entries.map { "rb:${it.name}" } + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
             HomeTab.entries.filter { it != HomeTab.Settings }.map { "tab:${it.name}" }
     }
 
@@ -1074,11 +1230,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val g = (st.detail as? Load.Ok)?.data
             listOf("want") + when (st.tab) {
                 GameTab.Achievements -> listOf("filter") + filteredAchievements(st).map { "a:${it.id}" }
-                GameTab.Info -> g?.let { d -> d.images.indices.map { "img:$it" } + gameFacts(d).indices.map { "fact:$it" } }.orEmpty()
+                GameTab.Info -> g?.let { d -> d.images.indices.map { "img:$it" } + gameFacts(d, (st.extras as? Load.Ok)?.data).indices.map { "fact:$it" } }.orEmpty()
                 GameTab.Series -> (st.series as? Load.Ok)?.data.orEmpty().map { "ser:${it.id}" } +
                     (st.extras as? Load.Ok)?.data?.hubs.orEmpty().map { "hub:${it.id}" }
                 GameTab.Similar -> (st.extras as? Load.Ok)?.data?.similar.orEmpty().map { "sim:${it.id}" }
                 GameTab.Compare -> (st.compare as? Load.Ok)?.data.orEmpty().map { "cmp:${it.user}" }
+                GameTab.Leaderboards -> (st.leaderboards as? Load.Ok)?.data.orEmpty().map { "lb:${it.id}" }
             }
         }
         is Screen.User -> (user as? Load.Ok)?.data?.let { v ->
@@ -1086,6 +1243,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }.orEmpty()
         is Screen.ConsoleGames -> filteredConsoleGames().map { "cg:${it.id}" }
         is Screen.GameList -> filteredGameList().map { "gl:${it.id}" }
+        Screen.Awards -> listOf("afilter") + filteredAwards().indices.map { "aw:$it" }
+        Screen.Stats -> listOf("st:0")
+        is Screen.AchievementDetail -> (achievementInfo as? Load.Ok)?.data?.let { i -> i.recent.indices.map { "au:$it" } + i.comments.indices.map { "cm:$it" } }.orEmpty()
+        is Screen.Community -> (feed as? Load.Ok)?.data.orEmpty().map { "fd:${it.key}" }
         is Screen.Images, Screen.WebSignIn, Screen.Login -> emptyList()
     }
 
@@ -1128,17 +1289,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun loadTab(t: HomeTab) = when (t) {
         HomeTab.Playing -> launchLoad("recent", { recent = it }, { reconcileHidden(); restoreFocus(t) }) { recentGames() }
-        HomeTab.ForYou -> launchLoad("suggested", { suggested = it }, { restoreFocus(t) }) { suggestions() }
+        HomeTab.ForYou -> {
+            launchLoad("weekly", { weekly = it }) { achievementOfTheWeek() }
+            launchLoad("suggested", { suggested = it }, { restoreFocus(t) }) { suggestions() }
+        }
         HomeTab.WantToPlay -> launchLoad("want", { wantToPlay = it }, { restoreFocus(t) }) { wantToPlay() }
         HomeTab.Library -> launchLoad("library", { library = it }, { restoreFocus(t) }) { library() }
         HomeTab.Unlocks -> launchLoad("unlocks", { unlocks = it }, { restoreFocus(t) }) { recentUnlocks() }
-        HomeTab.Following -> launchLoad("following", { following = it }, { restoreFocus(t) }) { following() }
+        HomeTab.Following -> launchLoad("following", { following = it }, { list ->
+            prefs.followingNames = list.map { it.user.lowercase() }.toSet()   // for mastery notifications
+            restoreFocus(t)
+        }) { following() }
         HomeTab.Browse -> launchLoad("consoles", { consoles = it }, { restoreFocus(t) }) { consoles() }
         HomeTab.Profile -> loadProfile()
         HomeTab.Settings -> checkForUpdates(manual = true)
     }
 
-    private fun loadProfile() = launchLoad("profile", { profile = it }) { profile() }
+    private fun loadProfile() = launchLoad("profile", { profile = it }, { p ->
+        // Keep the home screen widget current.
+        prefs.saveWidget(p.user, p.points, p.richPresence)
+        app.wasabi.WasabiWidget.refresh(getApplication())
+    }) { profile() }
 
     private fun loadGame(s: Screen.Game) = launchLoad("game:${s.key}", { gameState(s).detail = it }, { if (screen == s) restoreFocusHere() }) {
         if (s.user != null) game(s.id, s.user) else game(s.id)

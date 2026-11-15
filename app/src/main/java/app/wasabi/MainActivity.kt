@@ -12,12 +12,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import app.wasabi.data.Background
 import app.wasabi.data.Updater
 import app.wasabi.ui.AppViewModel
 import app.wasabi.ui.Controls
@@ -36,6 +38,11 @@ import app.wasabi.ui.SignOutDialog
 import app.wasabi.ui.WebSignInScreen
 import app.wasabi.ui.ImageViewer
 import app.wasabi.ui.GameListScreen
+import app.wasabi.ui.AwardsScreen
+import app.wasabi.ui.StatsScreen
+import app.wasabi.ui.AchievementScreen
+import app.wasabi.ui.CommunityScreen
+import app.wasabi.ui.OfflineBanner
 
 class MainActivity : ComponentActivity() {
     private val vm: AppViewModel by viewModels()
@@ -44,6 +51,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent { WasabiTheme { App(vm) } }
         hideNavigationBar()
+        Background.ensureChannel(this)
+        Background.schedule(this)   // keeps the widget and notifications check running
     }
 
     override fun onResume() {
@@ -143,6 +152,9 @@ private fun App(vm: AppViewModel) {
             .background(Palette.Bg)
             .systemBarsPadding(),
     ) {
+        Column(Modifier.fillMaxSize()) {
+        OfflineBanner()
+        Box(Modifier.weight(1f)) {
         when (val s = vm.screen) {
             Screen.Login -> LoginScreen(vm)
             Screen.Home -> HomeScreen(vm)
@@ -152,6 +164,12 @@ private fun App(vm: AppViewModel) {
             Screen.WebSignIn -> WebSignInScreen(vm)
             is Screen.Images -> ImageViewer(vm, s)
             is Screen.GameList -> GameListScreen(vm, s)
+            Screen.Awards -> AwardsScreen(vm)
+            Screen.Stats -> StatsScreen(vm)
+            is Screen.AchievementDetail -> AchievementScreen(vm, s)
+            is Screen.Community -> CommunityScreen(vm, s)
+        }
+        }
         }
         // Hidden browser for Want to Play changes (only while one is running).
         RaWebWorker(vm)

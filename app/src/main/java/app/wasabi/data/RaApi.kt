@@ -1,6 +1,10 @@
 package app.wasabi.data
 
 import android.content.Context
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -34,7 +38,12 @@ class RaApi(val user: String, private val key: String) {
             softPoints = j.optInt("TotalSoftcorePoints"),
             truePoints = j.optInt("TotalTruePoints"),
             memberSince = j.str("MemberSince"),
-        )
+        ).let { p ->
+            // Site rank comes from the user summary.
+            val summary = runCatching { obj("API_GetUserSummary.php", "u" to of, "g" to "0", "a" to "0") }.getOrNull()
+            if (summary == null) p
+            else p.copy(rank = if (summary.isNull("Rank")) null else summary.optInt("Rank").takeIf { it > 0 }, totalRanked = summary.optInt("TotalRanked"))
+        }
     }
 
     suspend fun recentGames(of: String = user, count: Int = 50): List<RecentGame> =
@@ -101,8 +110,8 @@ class RaApi(val user: String, private val key: String) {
     }
 
     /** Unlocks from the last 30 days, newest first. */
-    suspend fun recentUnlocks(of: String = user): List<Unlock> =
-        arr("API_GetUserRecentAchievements.php", "u" to of, "m" to "${60 * 24 * 30}").objects().map { j ->
+    suspend fun recentUnlocks(of: String = user, minutes: Int = 60 * 24 * 30): List<Unlock> =
+        arr("API_GetUserRecentAchievements.php", "u" to of, "m" to "$minutes").objects().map { j ->
             Unlock(
                 achievementId = j.optInt("AchievementID"),
                 title = j.str("Title").orEmpty(),
@@ -217,6 +226,180 @@ class RaApi(val user: String, private val key: String) {
         )
     }
 
+    // ---- awards, followers, stats ----
+
+    /** The awards wall: counts and the visible badges, newest first. */
+    suspend fun awards(of: String = user): Awards {
+        val j = obj("API_GetUserAwards.php", "u" to of)
+        val items = j.optJSONArray("VisibleUserAwards")?.objects().orEmpty().map { a ->
+            val type = a.str("AwardType").orEmpty()
+            val extra = a.optInt("AwardDataExtra")
+            val kind = when (type) {
+                "Mastery/Completion" -> if (extra == 1) "mastered" else "completed"
+                "Game Beaten" -> if (extra == 1) "beaten-hardcore" else "beaten-softcore"
+                "Event" -> "event"
+                else -> "site"
+            }
+            AwardItem(
+                kind = kind,
+                title = a.str("Title") ?: type,
+                console = a.str("ConsoleName").orEmpty(),
+                iconUrl = media(a.str("ImageIcon")),
+                date = a.str("AwardedAt"),
+                gameId = if (kind == "event" || kind == "site") null else a.optInt("AwardData").takeIf { it > 0 },
+            )
+        }.sortedByDescending { it.date.orEmpty() }
+        return Awards(
+            mastered = j.optInt("MasteryAwardsCount"),
+            completed = j.optInt("CompletionAwardsCount"),
+            beatenHardcore = j.optInt("BeatenHardcoreAwardsCount"),
+            beatenSoftcore = j.optInt("BeatenSoftcoreAwardsCount"),
+            events = j.optInt("EventAwardsCount"),
+            site = j.optInt("SiteAwardsCount"),
+            items = items,
+        )
+    }
+
+    /** People who follow the signed-in user; followsBack = you follow them too. */
+    suspend fun followers(): List<FollowedUser> {
+        val out = mutableListOf<FollowedUser>()
+        var offset = 0
+        while (offset < 5000) {
+            val page = obj("API_GetUsersFollowingMe.php", "c" to "500", "o" to "$offset")
+            val results = page.optJSONArray("Results")?.objects().orEmpty()
+            results.mapTo(out) { j ->
+                val name = j.str("User").orEmpty()
+                FollowedUser(name, "$MEDIA/UserPic/$name.png", j.optInt("Points"), j.optInt("PointsSoftcore"),
+                    followsBack = j.opt("AmIFollowing").let { it == true || it == 1 || it == "1" })
+            }
+            offset += results.size
+            if (results.size < 500 || offset >= page.optInt("Total")) break
+        }
+        return out.filter { it.user.isNotEmpty() }.distinctBy { it.user.lowercase() }
+    }
+
+    /** Achievements unlocked between two times (Unix seconds), oldest first. */
+    suspend fun earnedBetween(from: Long, to: Long, of: String = user): List<Unlock> =
+        arr("API_GetAchievementsEarnedBetween.php", "u" to of, "f" to "$from", "t" to "$to").objects().map { j ->
+            Unlock(
+                achievementId = j.optInt("AchievementID"),
+                title = j.str("Title").orEmpty(),
+                description = j.str("Description").orEmpty(),
+                points = j.optInt("Points"),
+                badgeUrl = media(j.str("BadgeURL")),
+                date = j.str("Date"),
+                hardcore = j.opt("HardcoreMode").let { it == true || it == 1 || it == "1" },
+                gameId = j.optInt("GameID"),
+                gameTitle = j.str("GameTitle").orEmpty(),
+                console = j.str("ConsoleName").orEmpty(),
+            )
+        }.sortedBy { it.date.orEmpty() }
+
+    // ---- games ----
+
+    /** A game's leaderboards with each leader, merged with your own entries. */
+    suspend fun leaderboards(gameId: Int): List<LeaderboardRow> {
+        val all = obj("API_GetGameLeaderboards.php", "i" to "$gameId", "c" to "500").optJSONArray("Results")?.objects().orEmpty()
+        val mine = runCatching {
+            obj("API_GetUserGameLeaderboards.php", "i" to "$gameId", "u" to user, "c" to "500").optJSONArray("Results")?.objects().orEmpty()
+        }.getOrDefault(emptyList()).associateBy { it.optInt("ID") }
+        return all.map { l ->
+            val id = l.optInt("ID")
+            val top = l.optJSONObject("TopEntry")
+            val me = mine[id]?.optJSONObject("UserEntry")
+            LeaderboardRow(
+                id = id,
+                title = l.str("Title").orEmpty(),
+                description = l.str("Description").orEmpty(),
+                leader = top?.str("User"),
+                leaderScore = top?.str("FormattedScore"),
+                myRank = me?.optInt("Rank")?.takeIf { it > 0 },
+                myScore = me?.str("FormattedScore"),
+            )
+        }.filter { it.id > 0 }
+    }
+
+    /** Recent unlockers (newest first) and the latest comments for an achievement. */
+    suspend fun achievementInfo(id: Int): AchievementInfo {
+        val j = obj("API_GetAchievementUnlocks.php", "a" to "$id", "c" to "50")
+        val comments = runCatching {
+            obj("API_GetComments.php", "i" to "$id", "t" to "2", "c" to "50", "sort" to "-submitted")
+                .optJSONArray("Results")?.objects().orEmpty().map { c ->
+                    Comment(c.str("User").orEmpty(), c.str("Submitted"), c.str("CommentText").orEmpty())
+                }
+        }.getOrDefault(emptyList())
+        return AchievementInfo(
+            unlocks = j.optInt("UnlocksCount"),
+            unlocksHardcore = j.optInt("UnlocksHardcoreCount"),
+            players = j.optInt("TotalPlayers"),
+            recent = j.optJSONArray("Unlocks")?.objects().orEmpty().map { u ->
+                AchievementUnlock(u.str("User").orEmpty(), u.str("DateAwarded"), u.opt("HardcoreMode").let { it == true || it == 1 || it == "1" })
+            }.sortedByDescending { it.date.orEmpty() },
+            comments = comments,
+        )
+    }
+
+    // ---- community ----
+
+    suspend fun achievementOfTheWeek(): WeeklyAchievement {
+        val j = obj("API_GetAchievementOfTheWeek.php")
+        val a = j.optJSONObject("Achievement") ?: JSONObject()
+        val g = j.optJSONObject("Game") ?: JSONObject()
+        return WeeklyAchievement(
+            id = a.optInt("ID"),
+            title = a.str("Title").orEmpty(),
+            description = a.str("Description").orEmpty(),
+            points = a.optInt("Points"),
+            badgeUrl = media(a.str("BadgeURL")),
+            gameId = g.optInt("ID"),
+            gameTitle = g.str("Title").orEmpty(),
+            console = j.optJSONObject("Console")?.str("Title").orEmpty(),
+            unlocks = j.optInt("UnlocksCount"),
+            players = j.optInt("TotalPlayers"),
+        )
+    }
+
+    /** New achievement sets being made right now (active claims), newest first. */
+    suspend fun comingSoon(): List<FeedItem> =
+        arr("API_GetActiveClaims.php").objects()
+            .filter { it.optInt("SetType") == 0 && it.optInt("ClaimType") == 0 }
+            .map { c ->
+                val inReview = c.optInt("Status") == 3
+                FeedItem(
+                    key = "claim:${c.optInt("ID")}",
+                    gameId = c.optInt("GameID"),
+                    title = c.str("GameTitle").orEmpty(),
+                    console = c.str("ConsoleName").orEmpty(),
+                    iconUrl = media(c.str("GameIcon")),
+                    detail = if (inReview) "In review" else "In development",
+                    user = c.str("User"),
+                    date = c.str("Created"),
+                )
+            }.filter { it.gameId > 0 }.distinctBy { it.gameId }.sortedByDescending { it.date.orEmpty() }
+
+    /** Masteries and beaten awards across RetroAchievements, newest first. */
+    suspend fun recentGameAwards(kinds: String? = null, count: Int = 100): List<FeedItem> {
+        val params = listOfNotNull("c" to "$count", kinds?.let { "k" to it }).toTypedArray()
+        return obj("API_GetRecentGameAwards.php", *params).optJSONArray("Results")?.objects().orEmpty().mapIndexed { i, a ->
+            val kind = a.str("AwardKind").orEmpty()
+            FeedItem(
+                key = "award:$i:${a.optInt("GameID")}:${a.str("User")}",
+                gameId = a.optInt("GameID"),
+                title = a.str("GameTitle").orEmpty(),
+                console = a.str("ConsoleName").orEmpty(),
+                iconUrl = null,
+                detail = when (kind) {
+                    "mastered" -> "Mastered"
+                    "completed" -> "Completed"
+                    "beaten-hardcore" -> "Beaten"
+                    else -> "Beaten (softcore)"
+                },
+                user = a.str("User"),
+                date = a.str("AwardDate"),
+            )
+        }.filter { it.gameId > 0 }
+    }
+
     // ---- plumbing ----
 
     private suspend fun obj(endpoint: String, vararg params: Pair<String, String>): JSONObject {
@@ -246,24 +429,48 @@ class RaApi(val user: String, private val key: String) {
             conn.readTimeout = 20_000
             conn.setRequestProperty("User-Agent", "Wasabi/1.0 (Android)")
             conn.setRequestProperty("Accept", "application/json")
+            // Offline mode: every good answer is saved; without a connection the
+            // saved one is used and [offline] is set so the app can say so.
+            val cacheFile = cacheDir?.let { File(it, "api/" + cacheName(endpoint, params)) }
             try {
                 val code = conn.responseCode
                 val stream = if (code in 200..299) conn.inputStream else conn.errorStream
                 val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
                 when (code) {
-                    in 200..299 -> body
+                    in 200..299 -> {
+                        offline = false
+                        cacheFile?.let { f -> runCatching { f.parentFile?.mkdirs(); f.writeText(body) } }
+                        body
+                    }
                     401, 403 -> throw ApiException("Username or Web API key not accepted.")
                     404 -> throw ApiException("Not found on RetroAchievements.")
                     429 -> throw ApiException("Too many requests. Wait a moment and retry.")
                     else -> throw ApiException("RetroAchievements returned an error ($code).")
                 }
+            } catch (e: IOException) {
+                val saved = cacheFile?.takeIf { it.exists() }?.let { runCatching { it.readText() }.getOrNull() } ?: throw e
+                offline = true
+                saved
             } finally {
                 conn.disconnect()
             }
         }
 
+    /** Cache file name for a request (the key is left out). */
+    private fun cacheName(endpoint: String, params: Array<out Pair<String, String>>): String {
+        val id = endpoint + "?" + params.joinToString("&") { "${it.first}=${it.second}" }
+        val hash = java.security.MessageDigest.getInstance("SHA-1").digest(id.toByteArray()).joinToString("") { "%02x".format(it) }
+        return "$hash.json"
+    }
+
     companion object {
         private const val BASE = "https://retroachievements.org/API"
+
+        /** Where answers are saved for offline use (set by the app at start). */
+        var cacheDir: File? = null
+
+        /** True while the last request had to use saved data (no connection). */
+        var offline by mutableStateOf(false)
 
         /** Parses RaWeb.gameListScript's report: the games, or the HTTP status that stopped it. */
         fun parseGameList(json: String): Pair<List<RelatedGame>?, Int?> {
@@ -287,6 +494,8 @@ class RaApi(val user: String, private val key: String) {
             val j = JSONObject(json)
             fun hub(h: JSONObject) = HubRef(h.optInt("id"), h.str("title").orEmpty(), h.optInt("games"))
             return GameExtras(
+                timeToBeat = j.optInt("timeToBeat").takeIf { it > 0 },
+                timeToBeatHardcore = j.optInt("timeToBeatHardcore").takeIf { it > 0 },
                 series = j.optJSONObject("series")?.let(::hub)?.takeIf { it.id > 0 },
                 hubs = j.optJSONArray("hubs")?.objects().orEmpty().map(::hub).filter { it.id > 0 },
                 similar = j.optJSONArray("similar")?.objects().orEmpty().map { g ->
@@ -370,6 +579,34 @@ class Prefs(context: Context) {
             id to e.substringAfter('=', "")
         }.toMap()
         set(v) = sp.edit().putString("hiddenPlaying", v.entries.joinToString(";") { "${it.key}=${it.value}" }).apply()
+
+    /** Background notifications for new unlocks and friends' masteries. */
+    var notifications: Boolean
+        get() = sp.getBoolean("notifications", false)
+        set(v) = sp.edit().putBoolean("notifications", v).apply()
+
+    /** Newest unlock / friend award already notified (empty: not started yet). */
+    var lastUnlockSeen: String
+        get() = sp.getString("lastUnlockSeen", "").orEmpty()
+        set(v) = sp.edit().putString("lastUnlockSeen", v).apply()
+    var lastAwardSeen: String
+        get() = sp.getString("lastAwardSeen", "").orEmpty()
+        set(v) = sp.edit().putString("lastAwardSeen", v).apply()
+
+    /** Who you follow (lowercase), for mastery notifications. */
+    var followingNames: Set<String>
+        get() = sp.getStringSet("followingNames", emptySet()).orEmpty()
+        set(v) = sp.edit().putStringSet("followingNames", v).apply()
+
+    /** Home screen widget: placed or not, and what it shows. */
+    var widgetPlaced: Boolean
+        get() = sp.getBoolean("widgetPlaced", false)
+        set(v) = sp.edit().putBoolean("widgetPlaced", v).apply()
+    val widgetUser: String? get() = sp.getString("widgetUser", null)
+    val widgetPoints: Int get() = sp.getInt("widgetPoints", -1)
+    val widgetLine: String? get() = sp.getString("widgetLine", null)
+    fun saveWidget(user: String?, points: Int, line: String?) =
+        sp.edit().putString("widgetUser", user).putInt("widgetPoints", points).putString("widgetLine", line).apply()
 
     /** Name of the button that refreshes (see RefreshButton). */
     var refreshButton: String?

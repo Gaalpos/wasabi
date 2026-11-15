@@ -564,3 +564,17 @@ fun Modifier.swipeToSwitchTabs(onSwitch: (delta: Int) -> Unit): Modifier = compo
 fun tabTransition(direction: Int): ContentTransform =
     (slideInHorizontally(tween(200)) { w -> direction * w / 6 } + fadeIn(tween(200))) togetherWith
         (slideOutHorizontally(tween(150)) { w -> -direction * w / 6 } + fadeOut(tween(150)))
+
+/** Shown while Wasabi has no connection and is showing data saved earlier. */
+@Composable
+fun OfflineBanner() {
+    if (!app.wasabi.data.RaApi.offline) return
+    Text(
+        "Offline · showing saved data",
+        color = Color.Black,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.fillMaxWidth().background(Palette.Soft).padding(vertical = 3.dp),
+        textAlign = TextAlign.Center,
+    )
+}

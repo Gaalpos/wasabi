@@ -1,5 +1,7 @@
 package app.wasabi.ui
 
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.key
@@ -71,9 +73,27 @@ fun ForYouTab(vm: AppViewModel) {
         is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
         is Load.Ok -> {
             val data = s.data
-            if (data.isEmpty) {
+            val weekly = (vm.weekly as? Load.Ok)?.data
+            if (data.isEmpty && weekly == null) {
                 EmptyView("No suggestions yet. Play a few games, follow some players or fill your Want to Play list.")
             } else CardGrid(vm.listState(HomeTab.ForYou)) {
+                if (weekly != null) {
+                    fullWidthItem("h:aotw") { SectionTitle("Achievement of the Week", weekly.gameTitle + " · " + weekly.console) }
+                    fullWidthItem("aotw") {
+                        FocusRow("aotw", vm, onClick = { vm.openGame(weekly.gameId, weekly.gameTitle) }) {
+                            Thumb(weekly.badgeUrl, 48.dp)
+                            Column(Modifier.weight(1f)) {
+                                Text(weekly.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(weekly.description, color = Palette.Dim, fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    "${weekly.points} pts · unlocked ${num(weekly.unlocks)} times this week",
+                                    color = Palette.Accent, fontSize = 11.sp,
+                                )
+                            }
+                            WantToggle(vm, weekly.gameId)
+                        }
+                    }
+                }
                 if (data.almostDone.isNotEmpty()) {
                     fullWidthItem("h:a") { SectionTitle("Close to mastering", "You're at least halfway through these") }
                     items(data.almostDone, key = { "a${it.id}" }) { g ->
@@ -118,26 +138,49 @@ private fun FriendGameRow(vm: AppViewModel, f: FriendGame) {
 
 @Composable
 fun FollowingTab(vm: AppViewModel) {
-    when (val s = vm.following) {
-        null, Load.Loading -> LoadingView()
-        is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
-        is Load.Ok -> if (s.data.isEmpty()) {
-            EmptyView("You aren't following anyone yet. Follow players on retroachievements.org to see them here.")
-        } else CardGrid(vm.listState(HomeTab.Following)) {
-            fullWidthItem("count") {
-                Text(
-                    "Following ${num(s.data.size)}",
-                    color = Palette.Dim, fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 2.dp, top = 2.dp, bottom = 2.dp),
+    val mode = vm.followMode
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            FollowMode.entries.forEach { m ->
+                Pill(
+                    m.label,
+                    onClick = { if (vm.followMode != m) vm.toggleFollowMode() },
+                    selected = mode == m,
+                    compact = true,
+                    focusKey = if (m == FollowMode.Following) "fmode" else null,
+                    vm = if (m == FollowMode.Following) vm else null,
                 )
             }
-            items(s.data, key = { it.user }) { u -> FollowedRow(vm, u) }
+        }
+        Box(Modifier.weight(1f)) {
+            when (val s = if (mode == FollowMode.Following) vm.following else vm.followers) {
+                null, Load.Loading -> LoadingView()
+                is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
+                is Load.Ok -> if (s.data.isEmpty()) {
+                    EmptyView(
+                        if (mode == FollowMode.Following) "You aren't following anyone yet. Follow players on retroachievements.org to see them here."
+                        else "Nobody follows you yet."
+                    )
+                } else CardGrid(vm.listState(HomeTab.Following)) {
+                    fullWidthItem("count") {
+                        Text(
+                            if (mode == FollowMode.Following) "Following ${num(s.data.size)}" else "${num(s.data.size)} followers",
+                            color = Palette.Dim, fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 2.dp, top = 2.dp, bottom = 2.dp),
+                        )
+                    }
+                    items(s.data, key = { it.user }) { u -> FollowedRow(vm, u, mode) }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun FollowedRow(vm: AppViewModel, u: FollowedUser) {
+private fun FollowedRow(vm: AppViewModel, u: FollowedUser, mode: FollowMode = FollowMode.Following) {
     FocusRow("f:${u.user}", vm, onClick = { vm.openUser(u.user) }) {
         Thumb(u.avatarUrl, 40.dp, shape = CircleShape)
         Column(Modifier.weight(1f)) {
@@ -146,7 +189,8 @@ private fun FollowedRow(vm: AppViewModel, u: FollowedUser) {
                     u.user, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                 )
-                if (u.followsBack) Tag("Follows you", Palette.Soft)
+                // Following: they follow you back. Followers: you follow them too.
+                if (u.followsBack) Tag(if (mode == FollowMode.Following) "Follows you" else "You follow", Palette.Soft)
             }
             Text(
                 "${num(u.points)} pts" + if (u.softPoints > 0) " · ${num(u.softPoints)} soft" else "",
@@ -282,7 +326,19 @@ private fun BrowseList(vm: AppViewModel) {
                 items(GameListKind.entries, key = { "list:${it.name}" }) { kind ->
                     FocusRow("list:${kind.name}", vm, onClick = { vm.openGameList(kind) }) {
                         Icon(
-                            if (kind == GameListKind.MostPlayed) Icons.Rounded.Star else Icons.Rounded.Build,
+                            if (kind == GameListKind.MostPlayed) Icons.Rounded.Star else Icons.Rounded.Edit,
+                            contentDescription = null, tint = Palette.Accent, modifier = Modifier.size(24.dp),
+                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(kind.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text(kind.subtitle, color = Palette.Dim, fontSize = 11.sp)
+                        }
+                    }
+                }
+                items(CommunityKind.entries, key = { "community:${it.name}" }) { kind ->
+                    FocusRow("community:${kind.name}", vm, onClick = { vm.openCommunity(kind) }) {
+                        Icon(
+                            if (kind == CommunityKind.ComingSoon) Icons.Rounded.Build else Icons.Rounded.CheckCircle,
                             contentDescription = null, tint = Palette.Accent, modifier = Modifier.size(24.dp),
                         )
                         Column(Modifier.weight(1f)) {
@@ -576,4 +632,44 @@ fun SearchField(
             }
         },
     )
+}
+
+// ---------------------------------------------------------------- Community
+
+/** Sets in development, or recent masteries across RetroAchievements. */
+@Composable
+fun CommunityScreen(vm: AppViewModel, screen: Screen.Community) {
+    Column(Modifier.fillMaxSize()) {
+        ScreenTitle(screen.kind.title, screen.kind.subtitle)
+        Box(Modifier.weight(1f)) {
+            when (val s = vm.feed) {
+                null, Load.Loading -> LoadingView()
+                is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
+                is Load.Ok -> if (s.data.isEmpty()) EmptyView("Nothing here right now.") else CardGrid(vm.feedListState) {
+                    items(s.data, key = { it.key }) { f ->
+                        FocusRow("fd:${f.key}", vm, onClick = { vm.openGame(f.gameId, f.title) }) {
+                            if (f.iconUrl != null) {
+                                Thumb(f.iconUrl, 44.dp)
+                            } else {
+                                Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = Palette.Accent, modifier = Modifier.size(32.dp))
+                            }
+                            Column(Modifier.weight(1f)) {
+                                Text(f.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(f.console, color = Palette.Dim, fontSize = 11.sp, maxLines = 1)
+                                Text(
+                                    when (screen.kind) {
+                                        CommunityKind.ComingSoon -> "${f.detail}" + (f.user?.let { " by $it" } ?: "") + (f.date?.let { " · started ${ago(it)}" } ?: "")
+                                        CommunityKind.RecentMasteries -> "${f.detail}" + (f.user?.let { " by $it" } ?: "") + (f.date?.let { " · ${ago(it)}" } ?: "")
+                                    },
+                                    color = Palette.Accent, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            WantToggle(vm, f.gameId)
+                        }
+                    }
+                }
+            }
+        }
+        HintBar("A" to "Open", "X" to "Want to Play", "B" to "Back", REFRESH to "Refresh")
+    }
 }

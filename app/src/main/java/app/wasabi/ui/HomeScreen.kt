@@ -1,5 +1,6 @@
 package app.wasabi.ui
 
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.foundation.clickable
@@ -104,7 +105,7 @@ fun HomeScreen(vm: AppViewModel) {
                     HintBar("A" to "Open", "Y" to "Favorite", "L1/R1" to "Tabs", REFRESH to "Refresh")
                 }
                 HomeTab.Playing -> HintBar("A" to "Open", "X" to "Want to Play", "Y" to "Remove", "L1/R1" to "Tabs", REFRESH to "Refresh")
-                HomeTab.Following -> HintBar("A" to "Open", "L1/R1" to "Tabs", REFRESH to "Refresh")
+                HomeTab.Following -> HintBar("A" to "Open", "Y" to if (vm.followMode == FollowMode.Following) "Followers" else "Following", "L1/R1" to "Tabs", REFRESH to "Refresh")
                 else -> HintBar("A" to "Open", "X" to "Want to Play", "L1/R1" to "Tabs", REFRESH to "Refresh")
             }
         }
@@ -490,6 +491,11 @@ private fun Identity(vm: AppViewModel, p: Profile, showSignOut: Boolean = true) 
     Thumb(p.avatarUrl, 72.dp, shape = CircleShape)
     Text(p.user, color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
     p.motto?.let { Text("“$it”", color = Palette.Dim, fontSize = 13.sp, textAlign = TextAlign.Center) }
+    Spacer(Modifier.height(2.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Pill("Awards", onClick = { vm.openAwards() }, focusKey = "p:awards", vm = vm, icon = Icons.Rounded.Star)
+        Pill("Stats", onClick = { vm.openStats() }, focusKey = "p:stats", vm = vm, icon = Icons.AutoMirrored.Rounded.List)
+    }
     if (showSignOut) {
         Spacer(Modifier.height(4.dp))
         Pill("Sign out", onClick = { vm.askSignOut(SignOutKind.App) }, focusKey = "signout", vm = vm, icon = Icons.AutoMirrored.Rounded.ExitToApp)
@@ -499,6 +505,9 @@ private fun Identity(vm: AppViewModel, p: Profile, showSignOut: Boolean = true) 
 @Composable
 private fun Stats(p: Profile) {
     Column(Modifier.widthIn(max = 520.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        p.rank?.let { r ->
+            Stat("Site rank", "#${num(r)}" + if (p.totalRanked > 0) " of ${num(p.totalRanked)}" else "", Palette.Accent)
+        }
         Stat("Hardcore points", num(p.points), Palette.Accent)
         Stat("Softcore points", num(p.softPoints), Palette.Soft)
         Stat("RetroPoints", num(p.truePoints), Palette.Text)

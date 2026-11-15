@@ -1,5 +1,11 @@
 package app.wasabi.ui
 
+import app.wasabi.data.Background
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.os.Build
+import android.Manifest
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -59,6 +65,26 @@ fun SettingsTab(vm: AppViewModel) {
                         Text("Press A to show them in Playing again", color = Palette.Dim, fontSize = 11.sp)
                     }
                 }
+            }
+        }
+        fullWidthItem("h:notif") { Heading("Notifications", "Your new achievements, and games mastered or beaten by people you follow. Checked about every 15 minutes.") }
+        fullWidthItem("notif") {
+            val context = LocalContext.current
+            val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                vm.setNotifications(granted)
+            }
+            FocusRow("notif", vm, onClick = {
+                when {
+                    vm.notificationsOn -> vm.setNotifications(false)
+                    Build.VERSION.SDK_INT >= 33 && !Background.canNotify(context) -> permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    else -> vm.setNotifications(true)
+                }
+            }) {
+                Column(Modifier.weight(1f)) {
+                    Text(if (vm.notificationsOn) "On" else "Off", color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Press A to turn ${if (vm.notificationsOn) "off" else "on"}", color = Palette.Dim, fontSize = 11.sp)
+                }
+                Switch(vm.notificationsOn, dimmed = false)
             }
         }
         fullWidthItem("h:controls") { Heading("Controls", "What each button does") }

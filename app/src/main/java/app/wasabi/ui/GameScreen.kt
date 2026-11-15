@@ -30,6 +30,7 @@ import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalDensity
+import app.wasabi.data.GameExtras
 import app.wasabi.data.RelatedGame
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -85,6 +86,7 @@ fun GameScreen(vm: AppViewModel, screen: Screen.Game) {
                         GameTab.Series -> SeriesTab(vm, st, screen)
                         GameTab.Similar -> SimilarTab(vm, st)
                         GameTab.Compare -> CompareTab(vm, st)
+                        GameTab.Leaderboards -> LeaderboardsTab(vm, st)
                     }
                 }
             }
@@ -92,6 +94,7 @@ fun GameScreen(vm: AppViewModel, screen: Screen.Game) {
         when (st.tab) {
             GameTab.Achievements -> HintBar("X" to "Want to Play", "Y" to "Filter", "L1/R1" to "Tabs", "B" to "Back", REFRESH to "Refresh")
             GameTab.Info -> HintBar("A" to "View image", "X" to "Want to Play", "L1/R1" to "Tabs", "B" to "Back")
+            GameTab.Leaderboards -> HintBar("X" to "Want to Play", "L1/R1" to "Tabs", "B" to "Back", REFRESH to "Refresh")
             GameTab.Compare -> HintBar("A" to "Profile", "X" to "Want to Play", "L1/R1" to "Tabs", "B" to "Back", REFRESH to "Refresh")
             else -> HintBar("A" to "Open", "X" to "Want to Play", "L1/R1" to "Tabs", "B" to "Back", REFRESH to "Refresh")
         }
@@ -225,14 +228,14 @@ private fun AchievementsTab(vm: AppViewModel, st: GameState, g: GameDetail) {
                 )
             }
         }
-        items(list, key = { it.id }) { a -> AchievementRow(vm, a, g.players) }
+        items(list, key = { it.id }) { a -> AchievementRow(vm, a, g.players, g.title) }
     }
 }
 
 /** Images, totals and details; every row is selectable so the D-pad scrolls through it all. */
 @Composable
 private fun InfoTab(vm: AppViewModel, st: GameState, g: GameDetail) {
-    val facts = gameFacts(g)
+    val facts = gameFacts(g, (st.extras as? Load.Ok)?.data)
     CardGrid(st.listStates.getValue(GameTab.Info)) {
         if (g.images.isNotEmpty()) fullWidthItem("media") { GameMedia(vm, g) }
         if (g.total > 0) fullWidthItem("chips") { StatChips(g) }
@@ -370,9 +373,9 @@ fun RelatedGameRow(vm: AppViewModel, key: String, r: RelatedGame, current: Boole
 }
 
 @Composable
-private fun AchievementRow(vm: AppViewModel, a: Achievement, players: Int) {
+private fun AchievementRow(vm: AppViewModel, a: Achievement, players: Int, gameTitle: String) {
     val textAlpha = if (a.unlocked) 1f else 0.75f
-    FocusRow("a:${a.id}", vm) {
+    FocusRow("a:${a.id}", vm, onClick = { vm.openAchievement(a, gameTitle, players) }) {
         Thumb(a.badgeUrl, 48.dp, alpha = if (a.unlocked) 1f else 0.85f)
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -504,7 +507,7 @@ private fun StatChips(g: GameDetail) {
 }
 
 /** Developer, publisher, genre, release, players, your playtime and authors, as (label, value). */
-fun gameFacts(g: GameDetail): List<Pair<String, String>> = buildList {
+fun gameFacts(g: GameDetail, extras: GameExtras? = null): List<Pair<String, String>> = buildList {
     g.developer?.let { add("Developer" to it) }
     g.publisher?.let { add("Publisher" to it) }
     g.genre?.let { add("Genre" to it) }
@@ -513,6 +516,15 @@ fun gameFacts(g: GameDetail): List<Pair<String, String>> = buildList {
         add("Players" to "${num(g.players)}" + if (g.playersHardcore > 0) " · ${num(g.playersHardcore)} hardcore" else "")
     }
     if (g.playtimeSeconds > 0) add("Playtime" to playtime(g.playtimeSeconds))
+    // Median time to beat, from the website's game page (loaded with the Info tab).
+    if (extras != null && (extras.timeToBeat != null || extras.timeToBeatHardcore != null)) {
+        add(
+            "Time to beat" to listOfNotNull(
+                extras.timeToBeat?.let { playtime(it.toLong()) },
+                extras.timeToBeatHardcore?.let { playtime(it.toLong()) + " hardcore" },
+            ).joinToString(" · ")
+        )
+    }
     if (g.authors.isNotEmpty()) {
         val a = g.authors
         add("Made by" to if (a.size <= 3) a.joinToString(", ") else "${a.take(2).joinToString(", ")} and ${a.size - 2} others")
@@ -535,5 +547,33 @@ private fun playtime(seconds: Long): String {
         h > 0 -> "${h}h ${m}m"
         m > 0 -> "${m}m"
         else -> "under a minute"
+    }
+}
+
+/** The game's leaderboards: each leader and, where you have one, your rank. */
+@Composable
+private fun LeaderboardsTab(vm: AppViewModel, st: GameState) {
+    when (val l = st.leaderboards) {
+        null, Load.Loading -> LoadingView()
+        is Load.Err -> ErrorView(l.message, vm) { vm.refresh() }
+        is Load.Ok -> if (l.data.isEmpty()) {
+            EmptyView("This game has no leaderboards.")
+        } else CardGrid(st.listStates.getValue(GameTab.Leaderboards)) {
+            items(l.data, key = { it.id }) { b ->
+                FocusRow("lb:${b.id}", vm) {
+                    Column(Modifier.weight(1f)) {
+                        Text(b.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (b.description.isNotEmpty()) Text(b.description, color = Palette.Dim, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        b.leader?.let { Text("1st: $it · ${b.leaderScore.orEmpty()}", color = Palette.Faint, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }
+                    if (b.myRank != null) {
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("#${num(b.myRank)}", color = Palette.Accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            b.myScore?.let { Text(it, color = Palette.Dim, fontSize = 11.sp) }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

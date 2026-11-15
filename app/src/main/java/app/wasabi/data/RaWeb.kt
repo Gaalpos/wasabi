@@ -69,7 +69,10 @@ object RaWeb {
                        system: (g.system && g.system.name) || null,
                        achievements: g.achievementsPublished || 0, points: g.pointsTotal || 0 };
             };
+            var g0 = p.game || {};
             var out = {
+              timeToBeat: g0.medianTimeToBeat || null,
+              timeToBeatHardcore: g0.medianTimeToBeatHardcore || null,
               series: p.seriesHub && p.seriesHub.hub
                 ? { id: p.seriesHub.hub.id, title: p.seriesHub.hub.title || '', games: p.seriesHub.totalGameCount || 0 }
                 : null,

@@ -11,13 +11,13 @@ the built-in buttons as well as touch.
 | Tab | Contents |
 | --- | --- |
 | **Playing** | Your 50 most recently played games, with progress bars. Press **Y** (or tap ✕) to remove a game from this list, with Undo; bring them back in Settings. It comes back if you play it again. This only hides it in Wasabi: RetroAchievements can't remove a recently played game without resetting its progress |
-| **For You** | Suggestions: games you're close to mastering, games people you follow are playing, picks from Want to Play |
+| **For You** | The Achievement of the Week, then Suggestions: games you're close to mastering, games people you follow are playing, picks from Want to Play |
 | **Want to Play** | Your RetroAchievements Want to Play list, with achievement counts and points. Add or remove a game with the **Want to Play** button on its screen |
 | **Library** | Every game you've unlocked something in; sort by recent, progress or name |
 | **Unlocks** | Your unlocks from the last 30 days |
-| **Following** | Players you follow; open one to see their recent games, unlocks and per-game progress |
+| **Following** | Players you follow, or (Y) your followers; open one to see their recent games, unlocks and per-game progress |
 | **Browse** | A search box for every game with achievements, across all systems (the game lists download on your first search and are cached for a week); below it **Most played games** (top 200 by players) and **Hacks** (ROM hacks, most played first), both searchable and sortable (**Y**: most players, A–Z, most achievements, most points, system), from the website's game list; then every system: pick one to search its games and sort them (**Y**: A–Z, most players, most achievements, most points, recently updated; player counts come from the website's per-system list, top 500). Press **Y** (or tap the star) to favorite a system; favorites stay at the top |
-| **Profile** | Points, RetroPoints, member since, last seen (rich presence), sign out |
+| **Profile** | Site rank, points, RetroPoints, member since, last seen; **Awards** (your badge wall: mastered, completed, beaten, events) and **Stats** (points per week, streaks and an unlock calendar for the last 90 days) |
 
 Open any game for its title, Want to Play button and your progress, plus
 five tabs (switch with **LB/RB**):
@@ -25,12 +25,15 @@ five tabs (switch with **LB/RB**):
 | Tab | Contents |
 | --- | --- |
 | **Achievements** | Badges (grayed out while locked), points and RetroPoints, an unlock-rate bar with the hardcore share, author, missable/progression tags. **Y** shows all, locked, unlocked or only missable |
-| **Info** | Title screen, in-game shot and box art (A opens them full screen); totals; developer, publisher, genre, release date, players, your playtime and the achievement authors. Every row is selectable, so the D-pad scrolls through it all |
+| **Info** | Title screen, in-game shot and box art (A opens them full screen); totals; developer, publisher, genre, release date, players, your playtime, median time to beat and the achievement authors. Every row is selectable, so the D-pad scrolls through it all |
 | **Series** | The game's series, oldest first (API v2 hub games), and the other hubs it belongs to |
 | **Similar** | Games RetroAchievements lists as similar |
 | **Compare** | Your progress next to everyone you follow who has played it |
+| **Leaderboards** | Each leaderboard's leader and, where you have an entry, your rank and score |
 
-Series and Similar come from the game's public page on retroachievements.org
+Press **A** on an achievement to see who unlocked it recently and its comments.
+
+Series, Similar and time to beat come from the game's public page on retroachievements.org
 (the Web API doesn't link games to hubs or similar games), read in a hidden
 browser, so they need no sign-in.
 
@@ -85,6 +88,19 @@ Or build an APK you can copy over and sideload:
 
 The APK ends up in `app/build/outputs/wasabi/`, named with its version (for example `wasabi-1.3.apk`). It's signed with the
 debug key, so it installs without setting up a keystore.
+
+## Notifications, widget and offline
+
+- **Notifications** (Settings → Notifications): your new achievements, and
+  games mastered or beaten in hardcore by people you follow. Wasabi checks
+  about every 15 minutes while you're online (Android's minimum).
+- **Home screen widget**: your name, points and what you're playing. It
+  updates when Wasabi loads your profile and on each background check.
+- **Offline**: every answer from RetroAchievements is saved on the device.
+  Without a connection Wasabi shows the saved data, with an "Offline" bar.
+
+Browse also lists **Coming soon** (new sets being made right now) and
+**Recent masteries** across RetroAchievements.
 
 ## Adding to Want to Play
 
