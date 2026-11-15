@@ -13,8 +13,8 @@ android {
         applicationId = "app.wasabi"
         minSdk = 26          // Retroid Pocket Classic ships Android 14 (API 34)
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
     }
 
     buildTypes {
@@ -51,7 +51,7 @@ androidComponents {
         val copyApk = tasks.register<Copy>("copy${cap}VersionedApk") {
             from(variant.artifacts.get(SingleArtifact.APK)) { include("*.apk") }
             into(layout.buildDirectory.dir("outputs/wasabi"))
-            rename { "wasabi-$appVersion$suffix.apk" }
+            rename(".*\\.apk", "wasabi-$appVersion$suffix.apk")
         }
         tasks.matching { it.name == "assemble$cap" }.configureEach { finalizedBy(copyApk) }
     }
