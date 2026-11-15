@@ -55,16 +55,10 @@ fun HomeScreen(vm: AppViewModel) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth >= WideWidth
         Column(Modifier.fillMaxSize()) {
-            if (wide) {
-                // 16:9 / 4:3 landscape: profile and tabs share one row to save height.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    ProfileBar(vm.profile, Modifier.widthIn(max = 300.dp).weight(1f, fill = false))
-                    Tabs(vm, Modifier.weight(1f).padding(end = 10.dp))
-                }
-            } else {
-                ProfileBar(vm.profile)
-                Tabs(vm, Modifier.fillMaxWidth().padding(horizontal = 10.dp))
-            }
+            // Profile on top, tabs on their own full-width row below it,
+            // so as many tabs as possible fit on every screen shape.
+            ProfileBar(vm.profile)
+            Tabs(vm, Modifier.fillMaxWidth().padding(horizontal = 10.dp))
             UpdateBanner(vm)
             Box(Modifier.weight(1f).padding(top = 4.dp)) {
                 when (vm.tab) {
