@@ -8,7 +8,6 @@ import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -25,8 +24,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
@@ -40,7 +37,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,11 +84,13 @@ fun HomeScreen(vm: AppViewModel) {
                     HomeTab.Library -> LibraryTab(vm)
                     HomeTab.Unlocks -> UnlocksTab(vm)
                     HomeTab.Profile -> ProfileTab(vm, wide)
+                    HomeTab.Settings -> SettingsTab(vm)
                 }
             }
             when (vm.tab) {
                 HomeTab.Library -> HintBar("A" to "Open", "Y" to "Sort", "X" to "Refresh", "L1/R1" to "Tabs")
                 HomeTab.Profile -> HintBar("X" to "Refresh", "L1/R1" to "Tabs", "Start" to "Settings")
+                HomeTab.Settings -> HintBar("A" to "Change", "X" to "Check for updates", "L1/R1" to "Tabs")
                 HomeTab.Search -> HintBar("A" to "Open", "X" to "Reload games", "L1/R1" to "Tabs")
                 else -> HintBar("A" to "Open", "X" to "Refresh", "L1/R1" to "Tabs")
             }
@@ -92,35 +99,61 @@ fun HomeScreen(vm: AppViewModel) {
 }
 
 /**
- * Tab strip: compact pills that scroll sideways. Fades with arrows show
- * when more tabs are off-screen on either side, L1/R1 keycaps flank it,
- * and the selected tab is kept in view when L1/R1 change it.
+ * Tab strip: compact pills that scroll sideways, with fades and arrows when
+ * more tabs are off-screen and LB/RB badges at the ends. When the tab
+ * changes, it scrolls so the next tab in the direction you're moving is
+ * fully visible too (both neighbors when they fit).
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Tabs(vm: AppViewModel, modifier: Modifier = Modifier) {
     val scroll = rememberScrollState()
+    val tabs = vm.visibleTabs
+    // Left and right edge of each pill inside the strip's content, in px.
+    val bounds = remember { mutableStateMapOf<HomeTab, Pair<Int, Int>>() }
+    var viewport by remember { mutableIntStateOf(0) }
+    val margin = with(LocalDensity.current) { 36.dp.roundToPx() }   // edge fade plus a little air
+
+    LaunchedEffect(vm.tab, tabs, viewport, bounds.size) {
+        if (viewport <= 0) return@LaunchedEffect
+        val i = tabs.indexOf(vm.tab)
+        val sel = bounds[vm.tab] ?: return@LaunchedEffect
+        val ahead = tabs.getOrNull(i + vm.tabDirection)?.let { bounds[it] }
+        val behind = tabs.getOrNull(i - vm.tabDirection)?.let { bounds[it] }
+        fun span(vararg r: Pair<Int, Int>?): Pair<Int, Int> {
+            val parts = r.filterNotNull()
+            return (parts.minOf { it.first } - margin) to (parts.maxOf { it.second } + margin)
+        }
+        // Both neighbors if they fit, else the selected tab and the one ahead, else just the selected one.
+        val want = listOf(span(behind, sel, ahead), span(sel, ahead))
+            .firstOrNull { it.second - it.first <= viewport } ?: span(sel)
+        var target = scroll.value
+        if (want.first < target) target = want.first
+        if (want.second > target + viewport) target = want.second - viewport
+        target = target.coerceIn(0, scroll.maxValue)
+        if (target != scroll.value) scroll.animateScrollTo(target)
+    }
+
     Row(modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         KeyCap("L1")
-        Box(Modifier.weight(1f).padding(horizontal = 6.dp)) {
+        Box(Modifier.weight(1f).padding(horizontal = 6.dp).onSizeChanged { viewport = it.width }) {
             Row(
                 Modifier.horizontalScroll(scroll),
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                vm.visibleTabs.forEach { t ->
-                    val selected = vm.tab == t
-                    val requester = remember { BringIntoViewRequester() }
-                    LaunchedEffect(selected) { if (selected) requester.bringIntoView() }
+                tabs.forEach { t ->
                     Pill(
                         t.label,
                         onClick = { vm.selectTab(t) },
-                        selected = selected,
+                        selected = vm.tab == t,
                         compact = true,
-                        modifier = Modifier.bringIntoViewRequester(requester),
+                        icon = if (t == HomeTab.Settings) Icons.Rounded.Settings else null,
+                        modifier = Modifier.onPlaced { c ->
+                            val x = c.positionInParent().x.toInt()
+                            bounds[t] = x to x + c.size.width
+                        },
                     )
                 }
-                Pill("Settings", onClick = { vm.openSettings() }, compact = true, icon = Icons.Rounded.Settings)
             }
             Row(Modifier.matchParentSize()) {
                 if (scroll.canScrollBackward) EdgeFade(left = true)

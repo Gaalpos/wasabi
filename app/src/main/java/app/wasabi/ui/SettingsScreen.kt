@@ -25,64 +25,51 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Accent color and which home tabs are shown. Open with Start or the Settings tab button. */
+/** The Settings tab: updates, website sign-in, accent color and which tabs show. */
 @Composable
-fun SettingsScreen(vm: AppViewModel) {
-    Column(Modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
-            Text("Settings", color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-        }
-        Box(Modifier.weight(1f)) {
-            CardGrid(vm.settingsListState) {
-                fullWidthItem("h:updates") { Heading("Updates", "New versions come from GitHub. Android asks you to confirm each install.") }
-                fullWidthItem("upd") { UpdateSettingsRow(vm) }
-                fullWidthItem("h:web") { Heading("RetroAchievements website", "Only used to add and remove Want to Play games") }
-                fullWidthItem("web") {
-                    FocusRow("web", vm, onClick = { if (vm.webSignedIn) vm.webSignOut() else vm.openWebSignIn() }) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                if (vm.webSignedIn) "Signed in" else "Not signed in",
-                                color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                            )
-                            Text(
-                                if (vm.webSignedIn) "Press A to sign out of the website" else "Press A to sign in once",
-                                color = Palette.Dim, fontSize = 11.sp,
-                            )
-                        }
-                    }
-                }
-                fullWidthItem("h:accent") { Heading("Accent color", "Used for highlights, selection and hardcore unlocks") }
-                items(AccentColor.entries, key = { "ac:${it.name}" }) { c ->
-                    val on = Palette.accent == c
-                    FocusRow("ac:${c.name}", vm, onClick = { vm.setAccent(c) }) {
-                        Box(
-                            Modifier.size(22.dp).clip(CircleShape).background(c.color)
-                                .border(2.dp, if (on) Palette.Text else Color.Transparent, CircleShape),
-                        )
-                        Text(c.label, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        if (on) Text("Selected", color = c.color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                fullWidthItem("h:tabs") { Heading("Tabs", "Choose which tabs appear on the home screen. At least one stays on.") }
-                items(HomeTab.entries, key = { "tab:${it.name}" }) { t ->
-                    val on = t in vm.enabledTabs
-                    val last = on && vm.enabledTabs.size == 1
-                    FocusRow("tab:${t.name}", vm, onClick = { vm.toggleTab(t) }) {
-                        Text(
-                            t.label, color = if (on) Palette.Text else Palette.Dim, fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
-                        )
-                        Switch(on, dimmed = last)
-                    }
+fun SettingsTab(vm: AppViewModel) {
+    CardGrid(vm.listState(HomeTab.Settings)) {
+        fullWidthItem("h:updates") { Heading("Updates", "New versions come from GitHub. Android asks you to confirm each install.") }
+        fullWidthItem("upd") { UpdateSettingsRow(vm) }
+        fullWidthItem("h:web") { Heading("RetroAchievements website", "Only used to add and remove Want to Play games") }
+        fullWidthItem("web") {
+            FocusRow("web", vm, onClick = { if (vm.webSignedIn) vm.webSignOut() else vm.openWebSignIn() }) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (vm.webSignedIn) "Signed in" else "Not signed in",
+                        color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        if (vm.webSignedIn) "Press A to sign out of the website" else "Press A to sign in once",
+                        color = Palette.Dim, fontSize = 11.sp,
+                    )
                 }
             }
         }
-        HintBar("A" to "Change", "B" to "Back")
+        fullWidthItem("h:accent") { Heading("Accent color", "Used for highlights, selection and hardcore unlocks") }
+        items(AccentColor.entries, key = { "ac:${it.name}" }) { c ->
+            val on = Palette.accent == c
+            FocusRow("ac:${c.name}", vm, onClick = { vm.setAccent(c) }) {
+                Box(
+                    Modifier.size(22.dp).clip(CircleShape).background(c.color)
+                        .border(2.dp, if (on) Palette.Text else Color.Transparent, CircleShape),
+                )
+                Text(c.label, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                if (on) Text("Selected", color = c.color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        fullWidthItem("h:tabs") { Heading("Tabs", "Choose which tabs appear on the home screen. At least one stays on.") }
+        items(HomeTab.entries.filter { it != HomeTab.Settings }, key = { "tab:${it.name}" }) { t ->
+            val on = t in vm.enabledTabs
+            val last = on && vm.enabledTabs.count { it != HomeTab.Settings } == 1
+            FocusRow("tab:${t.name}", vm, onClick = { vm.toggleTab(t) }) {
+                Text(
+                    t.label, color = if (on) Palette.Text else Palette.Dim, fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
+                )
+                Switch(on, dimmed = last)
+            }
+        }
     }
 }
 

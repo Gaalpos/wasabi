@@ -42,7 +42,6 @@ sealed interface Screen {
     data class User(val name: String) : Screen
     /** All games with achievements on one console. */
     data class ConsoleGames(val id: Int, val name: String) : Screen
-    data object Settings : Screen
     /** One-time sign-in on retroachievements.org, for Want to Play. */
     data object WebSignIn : Screen
 }
@@ -66,6 +65,8 @@ enum class HomeTab(val label: String) {
     Browse("Browse"),
     Search("Search"),
     Profile("Profile"),
+    /** Always shown, last in the strip; Menu (Start) jumps here. */
+    Settings("Settings"),
 }
 sealed interface UpdateState {
     data object Idle : UpdateState
@@ -113,8 +114,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // Settings
     var enabledTabs by mutableStateOf(HomeTab.entries.toSet()); private set
-    val visibleTabs: List<HomeTab> get() = HomeTab.entries.filter { it in enabledTabs }
-    val settingsListState = LazyGridState()
+    val visibleTabs: List<HomeTab> get() = HomeTab.entries.filter { it in enabledTabs || it == HomeTab.Settings }
+    /** Last tab-strip direction: +1 moving right, -1 moving left. */
+    var tabDirection by mutableStateOf(1); private set
 
     // In-app updates from GitHub releases.
     val installedVersion: String = Updater.installedVersion(app)
@@ -238,6 +240,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun selectTab(t: HomeTab) {
         if (t == tab) return
+        val all = visibleTabs
+        tabDirection = if (all.indexOf(t) >= all.indexOf(tab)) 1 else -1
         tab = t
         ensureTab(t)
     }
@@ -247,15 +251,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val all = visibleTabs
         val i = all.indexOf(tab).coerceAtLeast(0)
         selectTab(all[(i + delta + all.size) % all.size])
+        tabDirection = if (delta >= 0) 1 else -1
     }
 
     // ---- settings ----
 
+    /** Menu (Start): back to the home screen's Settings tab. */
     fun openSettings() {
-        if (screen == Screen.Settings || screen == Screen.Login) return
-        stack.add(Screen.Settings)
+        if (screen == Screen.Login) return
+        while (stack.size > 1) back()
+        selectTab(HomeTab.Settings)
         focusTarget = "upd"
-        if (update == UpdateState.Idle || update is UpdateState.Failed) checkForUpdates(manual = true)
     }
 
     fun setAccent(c: AccentColor) {
@@ -265,8 +271,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Turns a home tab on or off. At least one tab always stays on. */
     fun toggleTab(t: HomeTab) {
+        if (t == HomeTab.Settings) return
         val next = if (t in enabledTabs) enabledTabs - t else enabledTabs + t
-        if (next.isEmpty()) return
+        if (next.none { it != HomeTab.Settings }) return
         enabledTabs = next
         prefs.tabs = HomeTab.entries.filter { it in next }.joinToString(",") { it.name }
         if (tab !in next) {
@@ -495,11 +502,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refresh() {
         when (val s = screen) {
-            Screen.Home -> { loadTab(tab); if (tab != HomeTab.Profile) loadProfile() }
+            Screen.Home -> { loadTab(tab); if (tab != HomeTab.Profile && tab != HomeTab.Settings) loadProfile() }
             is Screen.Game -> loadGame(s)
             is Screen.User -> loadUser(s.name)
             is Screen.ConsoleGames -> loadConsole(s.id)
-            Screen.Settings, Screen.WebSignIn, Screen.Login -> Unit
+            Screen.WebSignIn, Screen.Login -> Unit
         }
     }
 
@@ -561,7 +568,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         is Screen.Game -> "game:${s.id}:${s.user}"
         is Screen.User -> "user:${s.name}"
         is Screen.ConsoleGames -> "console:${s.id}"
-        Screen.Settings -> "settings"
         else -> tab.name
     }
 
@@ -577,6 +583,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Browse -> (consoles as? Load.Ok)?.data.orEmpty().map { "c:${it.id}" }
         HomeTab.Search -> searchResults().map { "sg:${it.id}" }
         HomeTab.Profile -> listOf("signout")
+        HomeTab.Settings -> listOf("upd", "web") + AccentColor.entries.map { "ac:${it.name}" } +
+            HomeTab.entries.filter { it != HomeTab.Settings }.map { "tab:${it.name}" }
     }
 
     private fun keysHere(): List<String> = when (val s = screen) {
@@ -586,7 +594,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             v.recentGames.map { "ug:${it.id}" } + v.unlocks.map { "uu:${it.achievementId}:${it.date}" }
         }.orEmpty()
         is Screen.ConsoleGames -> filteredConsoleGames().map { "cg:${it.id}" }
-        Screen.Settings -> listOf("upd", "web") + AccentColor.entries.map { "ac:${it.name}" } + HomeTab.entries.map { "tab:${it.name}" }
         Screen.WebSignIn, Screen.Login -> emptyList()
     }
 
@@ -614,6 +621,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             HomeTab.Browse -> consoles
             HomeTab.Search -> catalog
             HomeTab.Profile -> profile
+            HomeTab.Settings -> {
+                if (update == UpdateState.Idle || update is UpdateState.Failed) checkForUpdates(manual = true)
+                restoreFocus(t)
+                return
+            }
         }
         if (state == null || state is Load.Err) loadTab(t) else restoreFocus(t)
     }
@@ -628,6 +640,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Browse -> launchLoad("consoles", { consoles = it }, { restoreFocus(t) }) { consoles() }
         HomeTab.Search -> loadCatalog(force = catalog is Load.Ok)
         HomeTab.Profile -> loadProfile()
+        HomeTab.Settings -> checkForUpdates(manual = true)
     }
 
     private fun loadProfile() = launchLoad("profile", { profile = it }) { profile() }

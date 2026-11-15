@@ -23,7 +23,6 @@ import app.wasabi.ui.HomeScreen
 import app.wasabi.ui.LoginScreen
 import app.wasabi.ui.Palette
 import app.wasabi.ui.Screen
-import app.wasabi.ui.SettingsScreen
 import app.wasabi.ui.UpdateState
 import app.wasabi.ui.UserScreen
 import app.wasabi.ui.RaWebWorker
@@ -82,7 +81,6 @@ private fun App(vm: AppViewModel) {
             is Screen.Game -> GameScreen(vm, s)
             is Screen.User -> UserScreen(vm, s)
             is Screen.ConsoleGames -> ConsoleScreen(vm, s)
-            Screen.Settings -> SettingsScreen(vm)
             Screen.WebSignIn -> WebSignInScreen(vm)
         }
         // Hidden browser for Want to Play changes (only while one is running).
