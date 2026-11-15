@@ -90,13 +90,13 @@ fun HomeScreen(vm: AppViewModel) {
                 }
             }
             when (vm.tab) {
-                HomeTab.Library -> HintBar("A" to "Open", "Y" to "Sort", "X" to "Refresh", "L1/R1" to "Tabs")
-                HomeTab.Profile -> HintBar("X" to "Refresh", "L1/R1" to "Tabs", "Start" to "Settings")
-                HomeTab.Settings -> HintBar("A" to "Change", "X" to "Check for updates", "L1/R1" to "Tabs")
-                HomeTab.Search -> HintBar("A" to "Open", "X" to "Reload games", "L1/R1" to "Tabs")
-                HomeTab.Browse -> HintBar("A" to "Open", "Y" to "Favorite", "X" to "Refresh", "L1/R1" to "Tabs")
-                HomeTab.Playing -> HintBar("A" to "Open", "Y" to "Remove", "X" to "Refresh", "L1/R1" to "Tabs")
-                else -> HintBar("A" to "Open", "X" to "Refresh", "L1/R1" to "Tabs")
+                HomeTab.Library -> HintBar("A" to "Open", "Y" to "Sort", REFRESH to "Refresh", "L1/R1" to "Tabs")
+                HomeTab.Profile -> HintBar(REFRESH to "Refresh", "L1/R1" to "Tabs", "Start" to "Settings")
+                HomeTab.Settings -> HintBar("A" to "Change", REFRESH to "Check for updates", "L1/R1" to "Tabs")
+                HomeTab.Search -> HintBar("A" to "Open", REFRESH to "Reload games", "L1/R1" to "Tabs")
+                HomeTab.Browse -> HintBar("A" to "Open", "Y" to "Favorite", REFRESH to "Refresh", "L1/R1" to "Tabs")
+                HomeTab.Playing -> HintBar("A" to "Open", "Y" to "Remove", REFRESH to "Refresh", "L1/R1" to "Tabs")
+                else -> HintBar("A" to "Open", REFRESH to "Refresh", "L1/R1" to "Tabs")
             }
         }
     }

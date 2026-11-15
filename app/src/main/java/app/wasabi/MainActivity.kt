@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import app.wasabi.data.Updater
 import app.wasabi.ui.AppViewModel
+import app.wasabi.ui.Controls
 import app.wasabi.ui.WasabiTheme
 import app.wasabi.ui.ConsoleScreen
 import app.wasabi.ui.GameScreen
@@ -55,12 +56,18 @@ class MainActivity : ComponentActivity() {
      * duplicates are ignored, and the release is swallowed too.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (vm.screen == Screen.Login) return super.dispatchKeyEvent(event)
+        // The refresh button (R2 unless changed in Settings), first press only.
+        if (event.keyCode == Controls.refresh.keyCode) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) vm.refresh()
+            return true
+        }
         val delta = when (event.keyCode) {
-            KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_L2 -> -1
-            KeyEvent.KEYCODE_BUTTON_R1, KeyEvent.KEYCODE_BUTTON_R2 -> 1
+            KeyEvent.KEYCODE_BUTTON_L1 -> -1
+            KeyEvent.KEYCODE_BUTTON_R1 -> 1
             else -> 0
         }
-        if (delta == 0 || vm.screen == Screen.Login) return super.dispatchKeyEvent(event)
+        if (delta == 0) return super.dispatchKeyEvent(event)
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
             val duplicate = event.keyCode == lastShoulderKey && event.eventTime - lastShoulderTime < 150
             lastShoulderKey = event.keyCode
@@ -78,7 +85,7 @@ class MainActivity : ComponentActivity() {
         if (vm.screen == Screen.Login) return super.onKeyDown(keyCode, event)
         val action: (() -> Unit)? = when (keyCode) {
             KeyEvent.KEYCODE_BUTTON_Y -> vm::option
-            KeyEvent.KEYCODE_BUTTON_X -> vm::refresh
+            KeyEvent.KEYCODE_BUTTON_X -> vm::wantToPlayShortcut
             KeyEvent.KEYCODE_BUTTON_START -> vm::openSettings
             else -> null
         }

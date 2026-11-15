@@ -165,7 +165,7 @@ fun UserScreen(vm: AppViewModel, screen: Screen.User) {
                 }
             }
         }
-        HintBar("A" to "Open", "B" to "Back", "X" to "Refresh")
+        HintBar("A" to "Open", "B" to "Back", REFRESH to "Refresh")
     }
 }
 
@@ -338,7 +338,7 @@ fun ConsoleScreen(vm: AppViewModel, screen: Screen.ConsoleGames) {
                 }
             }
         }
-        HintBar("A" to "Open", "B" to "Back", "Y" to "Favorite", "X" to "Refresh")
+        HintBar("A" to "Open", "B" to "Back", "Y" to "Favorite", REFRESH to "Refresh")
     }
 }
 

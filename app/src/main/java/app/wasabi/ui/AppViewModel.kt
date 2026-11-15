@@ -208,6 +208,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         Palette.accent = AccentColor.entries.find { it.name == prefs.accent } ?: AccentColor.Wasabi
+        Controls.refresh = RefreshButton.entries.find { it.name == prefs.refreshButton } ?: RefreshButton.R2
         prefs.tabs?.let { saved ->
             val tabs = saved.split(',').mapNotNull { n -> HomeTab.entries.find { it.name == n } }.toSet()
             if (tabs.isNotEmpty()) enabledTabs = tabs
@@ -373,6 +374,36 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         focusTarget = "upd"
     }
 
+    fun setRefreshButton(b: RefreshButton) {
+        Controls.refresh = b
+        prefs.refreshButton = b.name
+    }
+
+    /**
+     * X: on a game, add it to (or remove it from) Want to Play; on a game in
+     * a list, add that game. A short message confirms it when not on the game.
+     */
+    fun wantToPlayShortcut() {
+        val id = when (val s = screen) {
+            is Screen.Game -> s.id
+            Screen.Home, is Screen.User, is Screen.ConsoleGames -> focusedGameId()
+            else -> null
+        } ?: return
+        toggleWantToPlay(id)
+    }
+
+    /** The game behind the focused list row, if it is one. */
+    private fun focusedGameId(): Int? {
+        val key = lastFocus[focusScope()] ?: return null
+        val prefixes = listOf("s:a:", "s:f:", "s:w:", "g:", "w:", "sg:", "cg:", "ug:", "ser:", "sim:")
+        val p = prefixes.firstOrNull { key.startsWith(it) } ?: return null
+        return key.removePrefix(p).toIntOrNull()
+    }
+
+    private fun toast(text: String) {
+        android.widget.Toast.makeText(getApplication(), text, android.widget.Toast.LENGTH_SHORT).show()
+    }
+
     fun setAccent(c: AccentColor) {
         Palette.accent = c
         prefs.accent = c.name
@@ -424,7 +455,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         webJob = null
         wantBusy = null
         when {
-            status in 200..299 -> applyWantChange(job)
+            status in 200..299 -> {
+                applyWantChange(job)
+                if (screen !is Screen.Game) toast(if (job.add) "Added to Want to Play" else "Removed from Want to Play")
+            }
             status == 401 || status == 419 -> {
                 // The website session ended: sign in again, then retry.
                 saveWebSignedIn(false)
@@ -435,6 +469,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             status < 0 -> wantError = "Couldn't reach retroachievements.org."
             else -> wantError = "Couldn't update Want to Play (error $status)."
         }
+        // Off the game screen the error has nowhere to show, so say it briefly.
+        if (screen !is Screen.Game) wantError?.let { toast(it); wantError = null }
     }
 
     /** Update the local list right away instead of waiting for a reload. */
@@ -780,7 +816,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Browse -> sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
         HomeTab.Search -> searchResults().map { "sg:${it.id}" }
         HomeTab.Profile -> listOf("signout")
-        HomeTab.Settings -> listOf("upd", "web") + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
+        HomeTab.Settings -> listOf("upd", "web") + RefreshButton.entries.map { "rb:${it.name}" } + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
             HomeTab.entries.filter { it != HomeTab.Settings }.map { "tab:${it.name}" }
     }
 

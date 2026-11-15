@@ -100,9 +100,13 @@
   .s-hints { margin-top: auto; display: flex; justify-content: center; gap: 9px; color: var(--dim); font-size: 8px; }
   .s-hints span { display: inline-flex; align-items: center; gap: 3px; }
   /* Xbox-style controller glyphs, same as the app's hint bar. */
-  .xb { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; color: #fff; font: 800 10px/1 Inter, sans-serif; }
-  .xb.a { background: #5dc21e; } .xb.b { background: #e5383b; } .xb.x { background: #2e7de6; } .xb.y { background: #f2b705; color: #1a1a1a; }
-  .xb.menu { background: #3a3a44; }
+  /* Face buttons like the app: colored circle, darker crescent on the left, dark rim, black letter. */
+  .xb { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid #0b0b0b; color: #111; font: 800 10px/1 Inter, sans-serif; }
+  .xb.a { background: radial-gradient(circle at 62% 50%, #f0483e 0 60%, #c4322a 61%); }
+  .xb.b { background: radial-gradient(circle at 62% 50%, #ffd23f 0 60%, #e2a91c 61%); }
+  .xb.x { background: radial-gradient(circle at 62% 50%, #2f86d6 0 60%, #1d5faa 61%); }
+  .xb.y { background: radial-gradient(circle at 62% 50%, #2dc653 0 60%, #1c963b 61%); }
+  .xb.menu { background: #3a3a44; border: none; }
   .xb.menu::before { content: ""; width: 9px; height: 7px; background: linear-gradient(#fff 0 0) top/100% 1.6px no-repeat, linear-gradient(#fff 0 0) center/100% 1.6px no-repeat, linear-gradient(#fff 0 0) bottom/100% 1.6px no-repeat; }
   .bump { display: inline-grid; place-items: center; height: 18px; padding: 0 6px; border-radius: 9px 9px 3px 3px; background: #3a3a44; color: #fff; font: 800 9px/1 Inter, sans-serif; }
   .s-hints .xb, .s-hints .bump { transform: scale(.62); margin: 0 -3px; }
@@ -215,7 +219,7 @@
             <div class="s-body"><div class="s-t">Turbo Kart Rally</div><div class="s-sub">N64 · 4d ago</div>
               <div class="s-prog"><div class="s-track"><i class="soft" style="width:24%"></i></div><span class="s-n">12/49</span></div></div>
           </div>
-          <div class="s-hints"><span><i class="xb a">A</i>Open</span><span><i class="xb x">X</i>Refresh</span><span><i class="bump">LB</i><i class="bump">RB</i>Tabs</span></div>
+          <div class="s-hints"><span><i class="xb a">A</i>Open</span><span><i class="bump">R2</i>Refresh</span><span><i class="bump">L1</i><i class="bump">R1</i>Tabs</span></div>
         </div>
       </div>
       <div class="home"></div>
@@ -255,9 +259,10 @@
       <div class="key"><kbd>D-pad</kbd><span>Move between items</span></div>
       <div class="key"><span class="glyphs"><i class="xb a">A</i></span><span>Open a game</span></div>
       <div class="key"><span class="glyphs"><i class="xb b">B</i></span><span>Go back</span></div>
-      <div class="key"><span class="glyphs"><i class="bump">LB</i><i class="bump">RB</i></span><span>Previous / next tab</span></div>
+      <div class="key"><span class="glyphs"><i class="bump">L1</i><i class="bump">R1</i></span><span>Previous / next tab</span></div>
       <div class="key"><span class="glyphs"><i class="xb y">Y</i></span><span>Sort library / filter achievements</span></div>
-      <div class="key"><span class="glyphs"><i class="xb x">X</i></span><span>Refresh</span></div>
+      <div class="key"><span class="glyphs"><i class="xb x">X</i></span><span>Add to Want to Play</span></div>
+      <div class="key"><span class="glyphs"><i class="bump">R2</i></span><span>Refresh (pick the button in Settings)</span></div>
       <div class="key"><span class="glyphs"><i class="xb menu" aria-label="Menu"></i></span><span>Settings (Menu / Start)</span></div>
     </div>
   </div>

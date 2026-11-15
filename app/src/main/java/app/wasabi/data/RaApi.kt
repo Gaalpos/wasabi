@@ -355,6 +355,11 @@ class Prefs(context: Context) {
         }.toMap()
         set(v) = sp.edit().putString("hiddenPlaying", v.entries.joinToString(";") { "${it.key}=${it.value}" }).apply()
 
+    /** Name of the button that refreshes (see RefreshButton). */
+    var refreshButton: String?
+        get() = sp.getString("refreshButton", null)
+        set(v) = sp.edit().putString("refreshButton", v).apply()
+
     /** Favorite system (console) ids, shown first in Browse. */
     var favoriteConsoles: Set<Int>
         get() = sp.getString("favConsoles", null)?.split(',')?.mapNotNull { it.toIntOrNull() }?.toSet().orEmpty()

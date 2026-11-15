@@ -1,5 +1,9 @@
 package app.wasabi.ui
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -204,32 +208,53 @@ fun Pill(
     }
 }
 
-/** Xbox face-button colors. */
-private val xboxColors = mapOf(
-    "A" to Color(0xFF5DC21E),
-    "B" to Color(0xFFE5383B),
-    "X" to Color(0xFF2E7DE6),
-    "Y" to Color(0xFFF2B705),
+/** Buttons that can refresh (chosen in Settings). */
+enum class RefreshButton(val label: String, val keyCode: Int) {
+    R2("R2", android.view.KeyEvent.KEYCODE_BUTTON_R2),
+    L2("L2", android.view.KeyEvent.KEYCODE_BUTTON_L2),
+    Select("Select", android.view.KeyEvent.KEYCODE_BUTTON_SELECT),
+    R3("R3", android.view.KeyEvent.KEYCODE_BUTTON_THUMBR),
+    L3("L3", android.view.KeyEvent.KEYCODE_BUTTON_THUMBL),
+}
+
+/** Controller settings that hint bars and key handling read. */
+object Controls {
+    var refresh by mutableStateOf(RefreshButton.R2)
+}
+
+/** Use as a HintBar key to show whichever button refreshes. */
+const val REFRESH = "\u0000refresh"
+
+/** Face buttons: (fill, darker crescent). A red, B yellow, X blue, Y green. */
+private val faceColors = mapOf(
+    "A" to (Color(0xFFF0483E) to Color(0xFFC4322A)),
+    "B" to (Color(0xFFFFD23F) to Color(0xFFE2A91C)),
+    "X" to (Color(0xFF2F86D6) to Color(0xFF1D5FAA)),
+    "Y" to (Color(0xFF2DC653) to Color(0xFF1C963B)),
 )
 
 /**
- * A controller button in the standard Xbox style: colored round A/B/X/Y,
- * LB/RB bumpers, and the round Menu (≡) button for Start. Keys can be given
- * by their Android names (L1, R1, Start) or their Xbox names.
+ * A controller button icon. Face buttons are colored circles with a dark
+ * rim, a darker crescent on the left and a bold black letter; shoulders and
+ * Select are dark bumper shapes with their printed name; Start is the round
+ * Menu (≡) button.
  */
 @Composable
 fun ButtonBadge(key: String) {
-    val face = xboxColors[key]
+    val face = faceColors[key]
     when {
         face != null -> Box(
-            Modifier.size(18.dp).clip(CircleShape).background(face),
+            Modifier
+                .size(18.dp)
+                .drawBehind {
+                    val r = size.minDimension / 2
+                    drawCircle(face.second, r)                                  // crescent color
+                    drawCircle(face.first, r * 0.86f, center.copy(x = center.x + r * 0.16f))
+                    drawCircle(Color(0xFF0B0B0B), r - 0.75.dp.toPx(), style = Stroke(1.5.dp.toPx()))
+                },
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                key,
-                color = if (key == "Y") Color(0xFF1A1A1A) else Color.White,
-                fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
-            )
+            Text(key, color = Color(0xFF111111), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
         }
         key == "Start" || key == "Menu" -> Box(
             Modifier.size(18.dp).clip(CircleShape).background(Color(0xFF3A3A44)),
@@ -238,20 +263,13 @@ fun ButtonBadge(key: String) {
             Icon(Icons.Rounded.Menu, contentDescription = "Menu", tint = Color.White, modifier = Modifier.size(12.dp))
         }
         else -> {
-            val label = when (key) {
-                "L1" -> "LB"
-                "R1" -> "RB"
-                "L2" -> "LT"
-                "R2" -> "RT"
-                else -> key
-            }
             // Bumper: rounded on top, nearly square at the bottom.
             val shape = RoundedCornerShape(topStart = 9.dp, topEnd = 9.dp, bottomStart = 3.dp, bottomEnd = 3.dp)
             Box(
                 Modifier.height(18.dp).clip(shape).background(Color(0xFF3A3A44)).padding(horizontal = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                Text(key, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
             }
         }
     }
@@ -351,12 +369,14 @@ fun HintBar(vararg hints: Pair<String, String>) {
     Row(
         Modifier
             .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
             .background(Palette.Bg)
             .padding(horizontal = 10.dp, vertical = 5.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
+        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        hints.forEach { (key, label) ->
+        hints.forEach { (rawKey, label) ->
+            val key = if (rawKey == REFRESH) Controls.refresh.label else rawKey
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 // "L1/R1" shows as two badges.
                 key.split('/').forEach { ButtonBadge(it) }

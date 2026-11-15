@@ -60,6 +60,15 @@ fun SettingsTab(vm: AppViewModel) {
                 }
             }
         }
+        fullWidthItem("h:refresh") { Heading("Refresh button", "The button that reloads what you're looking at") }
+        items(RefreshButton.entries, key = { "rb:${it.name}" }) { b ->
+            val on = Controls.refresh == b
+            FocusRow("rb:${b.name}", vm, onClick = { vm.setRefreshButton(b) }) {
+                ButtonBadge(b.label)
+                Text(b.label, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                if (on) Text("Selected", color = Palette.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
         fullWidthItem("h:accent") { Heading("Accent color", "Used for highlights, selection and hardcore unlocks") }
         items(AccentColor.entries, key = { "ac:${it.name}" }) { c ->
             val on = Palette.accent == c

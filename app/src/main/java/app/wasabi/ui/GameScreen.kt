@@ -84,10 +84,10 @@ fun GameScreen(vm: AppViewModel, screen: Screen.Game) {
             }
         }
         when (st.tab) {
-            GameTab.Achievements -> HintBar("B" to "Back", "Y" to "Filter", "L1/R1" to "Tabs", "X" to "Refresh")
-            GameTab.Info -> HintBar("A" to "View image", "B" to "Back", "L1/R1" to "Tabs")
-            GameTab.Compare -> HintBar("A" to "Profile", "B" to "Back", "L1/R1" to "Tabs", "X" to "Refresh")
-            else -> HintBar("A" to "Open", "B" to "Back", "L1/R1" to "Tabs", "X" to "Refresh")
+            GameTab.Achievements -> HintBar("X" to "Want to Play", "Y" to "Filter", "L1/R1" to "Tabs", REFRESH to "Refresh")
+            GameTab.Info -> HintBar("A" to "View image", "X" to "Want to Play", "L1/R1" to "Tabs")
+            GameTab.Compare -> HintBar("A" to "Profile", "X" to "Want to Play", "L1/R1" to "Tabs", REFRESH to "Refresh")
+            else -> HintBar("A" to "Open", "X" to "Want to Play", "L1/R1" to "Tabs", REFRESH to "Refresh")
         }
     }
 }
