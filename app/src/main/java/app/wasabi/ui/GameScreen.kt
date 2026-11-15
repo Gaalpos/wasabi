@@ -385,6 +385,7 @@ private fun AchievementRow(vm: AppViewModel, a: Achievement, players: Int, gameT
                     maxLines = 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                if (a.hardcore) HardcoreBadge(Modifier.padding(start = 6.dp))
                 Text(
                     "${a.points}",
                     color = when {

@@ -37,7 +37,13 @@ fun AchievementScreen(vm: AppViewModel, screen: Screen.AchievementDetail) {
                     color = Palette.Faint, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 if (a.unlocked) {
-                    Text("You unlocked it ${ago(a.unlockedAt)}" + if (a.hardcore) " in hardcore" else "", color = Palette.Accent, fontSize = 11.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (a.hardcore) HardcoreBadge()
+                        Text(
+                            "You unlocked it ${ago(a.unlockedAt)}" + if (a.hardcore) "" else " (softcore)",
+                            color = if (a.hardcore) Palette.Accent else Palette.Soft, fontSize = 11.sp,
+                        )
+                    }
                 }
             }
         }

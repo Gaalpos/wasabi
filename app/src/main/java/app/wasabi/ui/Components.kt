@@ -591,3 +591,17 @@ suspend fun requestFocusWhenReady(requester: FocusRequester, isFocused: () -> Bo
         if (isFocused()) return
     }
 }
+
+/** A small "HARDCORE" chip for achievements unlocked in hardcore mode. */
+@Composable
+fun HardcoreBadge(modifier: Modifier = Modifier) {
+    Text(
+        "HARDCORE",
+        color = Palette.Accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp,
+        maxLines = 1,
+        modifier = modifier
+            .clip(RoundedCornerShape(4.dp))
+            .background(Palette.Accent.copy(alpha = 0.16f))
+            .padding(horizontal = 5.dp, vertical = 1.dp),
+    )
+}
