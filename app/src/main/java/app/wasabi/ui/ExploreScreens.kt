@@ -185,8 +185,6 @@ private fun UserHeader(vm: AppViewModel, v: UserView) {
         }
         p.motto?.let { Text("“$it”", color = Palette.Dim, fontSize = 12.sp) }
         p.richPresence?.let { Text("Last seen: $it", color = Palette.Faint, fontSize = 11.sp, maxLines = 3, overflow = TextOverflow.Ellipsis) }
-        Spacer(Modifier.height(2.dp))
-        Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
     }
 }
 
@@ -309,7 +307,6 @@ fun ConsoleScreen(vm: AppViewModel, screen: Screen.ConsoleGames) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
             Column(Modifier.weight(1f)) {
                 Text(screen.name, color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 (vm.consoleGames as? Load.Ok)?.let {
@@ -440,7 +437,6 @@ fun GameListScreen(vm: AppViewModel, screen: Screen.GameList) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
             Column(Modifier.weight(1f)) {
                 Text(screen.kind.title, color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val loaded = (vm.gameList as? Load.Ok)?.data

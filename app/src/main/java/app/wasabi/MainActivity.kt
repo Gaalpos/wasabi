@@ -2,6 +2,9 @@ package app.wasabi
 
 import android.os.Bundle
 import android.view.KeyEvent
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -38,11 +41,29 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { WasabiTheme { App(vm) } }
+        hideNavigationBar()
     }
 
     override fun onResume() {
         super.onResume()
+        hideNavigationBar()
         vm.onResume()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideNavigationBar()   // e.g. after the keyboard, a dialog or the installer
+    }
+
+    /**
+     * Hides Android's navigation bar (back / home / recents) for more room;
+     * B goes back. Swiping up from the bottom edge shows it briefly.
+     */
+    private fun hideNavigationBar() {
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.navigationBars())
+        }
     }
 
     // Last handled button press, to drop the duplicate some handhelds send

@@ -84,10 +84,10 @@ fun GameScreen(vm: AppViewModel, screen: Screen.Game) {
             }
         }
         when (st.tab) {
-            GameTab.Achievements -> HintBar("X" to "Want to Play", "Y" to "Filter", "L1/R1" to "Tabs", REFRESH to "Refresh")
-            GameTab.Info -> HintBar("A" to "View image", "X" to "Want to Play", "L1/R1" to "Tabs")
-            GameTab.Compare -> HintBar("A" to "Profile", "X" to "Want to Play", "L1/R1" to "Tabs", REFRESH to "Refresh")
-            else -> HintBar("A" to "Open", "X" to "Want to Play", "L1/R1" to "Tabs", REFRESH to "Refresh")
+            GameTab.Achievements -> HintBar("X" to "Want to Play", "Y" to "Filter", "L1/R1" to "Tabs", "B" to "Back", REFRESH to "Refresh")
+            GameTab.Info -> HintBar("A" to "View image", "X" to "Want to Play", "L1/R1" to "Tabs", "B" to "Back")
+            GameTab.Compare -> HintBar("A" to "Profile", "X" to "Want to Play", "L1/R1" to "Tabs", "B" to "Back", REFRESH to "Refresh")
+            else -> HintBar("A" to "Open", "X" to "Want to Play", "L1/R1" to "Tabs", "B" to "Back", REFRESH to "Refresh")
         }
     }
 }
@@ -134,7 +134,6 @@ private fun GameHeader(vm: AppViewModel, screen: Screen.Game, g: GameDetail) {
                 onClick = { vm.toggleWantToPlay(g.id) },
                 focusKey = "want", vm = vm,
             )
-            Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
         }
         vm.wantError?.let { Text(it, color = Palette.Error, fontSize = 11.sp) }
         if (g.total > 0) {

@@ -42,7 +42,6 @@ fun WebSignInScreen(vm: AppViewModel) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
             Column(Modifier.weight(1f)) {
                 Text("Sign in to RetroAchievements", color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 Text(
@@ -82,6 +81,7 @@ fun WebSignInScreen(vm: AppViewModel) {
             },
             onRelease = { it.destroy() },
         )
+        HintBar("B" to "Back")
     }
 }
 
