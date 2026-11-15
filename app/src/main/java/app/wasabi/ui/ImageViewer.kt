@@ -79,6 +79,6 @@ fun ImageViewer(vm: AppViewModel, screen: Screen.Images) {
             color = Palette.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
             modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = 2.dp),
         )
-        HintBar("←→" to "Switch image", "B" to "Back")
+        HintBar("DPadLR" to "Switch image", "B" to "Back")
     }
 }

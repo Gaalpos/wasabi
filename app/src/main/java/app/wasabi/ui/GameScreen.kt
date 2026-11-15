@@ -254,7 +254,7 @@ private fun SeriesTab(vm: AppViewModel, st: GameState, screen: Screen.Game) {
             if (series == null) {
                 fullWidthItem("noseries") { SectionHeading("Not part of a series", "RetroAchievements doesn't list a series for this game.") }
             } else {
-                fullWidthItem("h:series") { SectionHeading(series.title.removePrefix("[Series - ").removeSuffix("]"), "${num(series.games)} games in the series") }
+                fullWidthItem("h:series") { SectionHeading(hubName(series.title), "${num(series.games)} games in the series") }
                 when (val list = st.series) {
                     null, Load.Loading -> fullWidthItem("loading") { Text("Loading the series…", color = Palette.Dim, fontSize = 12.sp) }
                     is Load.Err -> fullWidthItem("err") { Text(list.message, color = Palette.Error, fontSize = 12.sp) }
@@ -268,7 +268,8 @@ private fun SeriesTab(vm: AppViewModel, st: GameState, screen: Screen.Game) {
                 fullWidthItem("h:hubs") { SectionHeading("Also in", "Other RetroAchievements hubs with this game") }
                 items(hubs, key = { "h${it.id}" }) { h ->
                     FocusRow("hub:${h.id}", vm) {
-                        Text(h.title, color = Palette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(hubName(h.title), color = Palette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        hubKind(h.title)?.let { Tag(it, Palette.Soft) }
                         if (h.games > 0) Text("${num(h.games)} games", color = Palette.Dim, fontSize = 11.sp)
                     }
                 }
@@ -330,6 +331,14 @@ private fun SectionHeading(title: String, sub: String) {
     }
 }
 
+/** "[Subseries - Paper Mario]" -> "Paper Mario". */
+private fun hubName(title: String): String =
+    if (title.startsWith("[") && " - " in title) title.substringAfter(" - ").removeSuffix("]").trim() else title
+
+/** "[Subseries - Paper Mario]" -> "Subseries". */
+private fun hubKind(title: String): String? =
+    if (title.startsWith("[") && " - " in title) title.removePrefix("[").substringBefore(" - ").trim() else null
+
 /** A game in a series or similar-games list; opens it. */
 @Composable
 private fun RelatedGameRow(vm: AppViewModel, key: String, r: RelatedGame, current: Boolean) {
@@ -350,6 +359,7 @@ private fun RelatedGameRow(vm: AppViewModel, key: String, r: RelatedGame, curren
                 color = Palette.Faint, fontSize = 11.sp,
             )
         }
+        if (!current) WantToggle(vm, r.id)
     }
 }
 

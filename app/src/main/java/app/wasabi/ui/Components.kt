@@ -1,5 +1,14 @@
 package app.wasabi.ui
 
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -24,7 +33,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -208,13 +216,14 @@ fun Pill(
     }
 }
 
-/** Buttons that can refresh (chosen in Settings). */
+/**
+ * Buttons that can refresh (chosen in Settings). The Retroid Pocket Classic
+ * has L1/R1 (tabs) and L2/R2 on the shoulders and no sticks, so no L3/R3.
+ */
 enum class RefreshButton(val label: String, val keyCode: Int) {
     R2("R2", android.view.KeyEvent.KEYCODE_BUTTON_R2),
     L2("L2", android.view.KeyEvent.KEYCODE_BUTTON_L2),
     Select("Select", android.view.KeyEvent.KEYCODE_BUTTON_SELECT),
-    R3("R3", android.view.KeyEvent.KEYCODE_BUTTON_THUMBR),
-    L3("L3", android.view.KeyEvent.KEYCODE_BUTTON_THUMBL),
 }
 
 /** Controller settings that hint bars and key handling read. */
@@ -225,53 +234,134 @@ object Controls {
 /** Use as a HintBar key to show whichever button refreshes. */
 const val REFRESH = "\u0000refresh"
 
-/** Face buttons: (fill, darker crescent). A red, B yellow, X blue, Y green. */
-private val faceColors = mapOf(
-    "A" to (Color(0xFFF0483E) to Color(0xFFC4322A)),
-    "B" to (Color(0xFFFFD23F) to Color(0xFFE2A91C)),
-    "X" to (Color(0xFF2F86D6) to Color(0xFF1D5FAA)),
-    "Y" to (Color(0xFF2DC653) to Color(0xFF1C963B)),
+private val BadgeSlate = Color(0xFF403D52)
+private val BadgeEdge = Color(0xFF34324A)
+
+/** Face-button letter colors: Y yellow, X blue, A green, B red. */
+private val faceLetter = mapOf(
+    "Y" to Color(0xFFFFD31A),
+    "X" to Color(0xFF2EA8E5),
+    "A" to Color(0xFF43EB4A),
+    "B" to Color(0xFFFF5252),
 )
 
 /**
- * A controller button icon. Face buttons are colored circles with a dark
- * rim, a darker crescent on the left and a bold black letter; shoulders and
- * Select are dark bumper shapes with their printed name; Start is the round
- * Menu (≡) button.
+ * A controller button icon, drawn after the provided button set: slate
+ * circles with colored letters for A/B/X/Y, slanted bumpers for L1/R1,
+ * triggers for L2/R2, ringed sticks for L3/R3, View (Select) and Menu
+ * (Start) circles, and a D-pad ("DPad", or "DPadLR" for left/right).
  */
 @Composable
 fun ButtonBadge(key: String) {
-    val face = faceColors[key]
-    when {
-        face != null -> Box(
-            Modifier
-                .size(18.dp)
-                .drawBehind {
-                    val r = size.minDimension / 2
-                    drawCircle(face.second, r)                                  // crescent color
-                    drawCircle(face.first, r * 0.86f, center.copy(x = center.x + r * 0.16f))
-                    drawCircle(Color(0xFF0B0B0B), r - 0.75.dp.toPx(), style = Stroke(1.5.dp.toPx()))
-                },
+    when (key) {
+        "A", "B", "X", "Y" -> Box(
+            Modifier.size(18.dp).clip(CircleShape).background(BadgeSlate).border(1.dp, BadgeEdge, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Text(key, color = Color(0xFF111111), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            Text(key, color = faceLetter.getValue(key), fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
         }
-        key == "Start" || key == "Menu" -> Box(
-            Modifier.size(18.dp).clip(CircleShape).background(Color(0xFF3A3A44)),
+        "L1", "R1" -> ShoulderBadge(key, width = 27.dp, height = 17.dp, mirrored = key == "R1") { w, h ->
+            // Bumper: tall on the outer side, sloping down toward the middle.
+            moveTo(0f, h * 0.22f)
+            quadraticTo(0f, 0f, w * 0.14f, 0f)
+            lineTo(w * 0.88f, h * 0.26f)
+            quadraticTo(w, h * 0.3f, w, h * 0.48f)
+            lineTo(w, h * 0.82f)
+            quadraticTo(w, h, w * 0.88f, h)
+            lineTo(w * 0.14f, h)
+            quadraticTo(0f, h, 0f, h * 0.8f)
+            close()
+        }
+        "L2", "R2" -> ShoulderBadge(key, width = 19.dp, height = 20.dp, mirrored = key == "R2") { w, h ->
+            // Trigger: a rounded column that flares out at the bottom.
+            moveTo(w * 0.3f, h * 0.1f)
+            quadraticTo(w * 0.3f, 0f, w * 0.42f, 0f)
+            lineTo(w * 0.9f, 0f)
+            quadraticTo(w, 0f, w, h * 0.08f)
+            lineTo(w, h * 0.86f)
+            quadraticTo(w, h, w * 0.86f, h)
+            lineTo(w * 0.12f, h)
+            quadraticTo(0f, h, w * 0.04f, h * 0.88f)
+            quadraticTo(w * 0.3f, h * 0.55f, w * 0.3f, h * 0.1f)
+            close()
+        }
+        "L3", "R3" -> Box(
+            Modifier.size(18.dp).drawBehind {
+                val r = size.minDimension / 2
+                drawCircle(Color(0xFF2A2939), r)
+                drawCircle(Color(0xFF3A384D), r * 0.84f)
+                drawCircle(Color(0xFF55536B), r * 0.8f, style = Stroke(0.6.dp.toPx()))
+            },
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Rounded.Menu, contentDescription = "Menu", tint = Color.White, modifier = Modifier.size(12.dp))
+            Text(key, color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Black, maxLines = 1)
         }
-        else -> {
-            // Bumper: rounded on top, nearly square at the bottom.
-            val shape = RoundedCornerShape(topStart = 9.dp, topEnd = 9.dp, bottomStart = 3.dp, bottomEnd = 3.dp)
-            Box(
-                Modifier.height(18.dp).clip(shape).background(Color(0xFF3A3A44)).padding(horizontal = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(key, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-            }
+        "Start", "Menu" -> Box(
+            Modifier.size(18.dp).clip(CircleShape).background(BadgeSlate).drawBehind {
+                val w = size.width
+                val stroke = 1.3.dp.toPx()
+                listOf(0.33f, 0.5f, 0.67f).forEach { y ->
+                    drawLine(Color.White, Offset(w * 0.28f, size.height * y), Offset(w * 0.72f, size.height * y), stroke, StrokeCap.Round)
+                }
+            },
+        )
+        "Select", "View" -> Box(
+            Modifier.size(18.dp).clip(CircleShape).background(BadgeSlate).drawBehind {
+                val w = size.width
+                val h = size.height
+                val stroke = Stroke(1.dp.toPx())
+                drawRect(Color.White, Offset(w * 0.24f, h * 0.28f), Size(w * 0.34f, h * 0.26f), style = stroke)
+                drawRect(BadgeSlate, Offset(w * 0.4f, h * 0.42f), Size(w * 0.38f, h * 0.3f))
+                drawRect(Color.White, Offset(w * 0.4f, h * 0.42f), Size(w * 0.38f, h * 0.3f), style = stroke)
+            },
+        )
+        "DPad", "DPadLR" -> Box(
+            Modifier.size(19.dp).drawBehind {
+                val w = size.width
+                val h = size.height
+                val arm = w * 0.34f
+                val corner = CornerRadius(1.5.dp.toPx())
+                drawRoundRect(Color(0xFF393748), Offset((w - arm) / 2, 0f), Size(arm, h), corner)
+                drawRoundRect(Color(0xFF393748), Offset(0f, (h - arm) / 2), Size(w, arm), corner)
+                drawRect(Color(0xFF2B2A39), Offset((w - arm) / 2, (h - arm) / 2), Size(arm, arm))
+                if (key == "DPadLR") {
+                    val cy = h / 2
+                    val t = w * 0.09f
+                    val left = Path().apply { moveTo(w * 0.07f, cy); lineTo(w * 0.07f + t * 1.4f, cy - t); lineTo(w * 0.07f + t * 1.4f, cy + t); close() }
+                    val right = Path().apply { moveTo(w * 0.93f, cy); lineTo(w * 0.93f - t * 1.4f, cy - t); lineTo(w * 0.93f - t * 1.4f, cy + t); close() }
+                    drawPath(left, Color.White)
+                    drawPath(right, Color.White)
+                }
+            },
+        )
+        else -> Box(
+            Modifier.height(18.dp).clip(RoundedCornerShape(50)).background(BadgeSlate).padding(horizontal = 6.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(key, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black, maxLines = 1)
         }
+    }
+}
+
+/** A bumper or trigger shape with its name; [mirrored] for the right-hand side. */
+@Composable
+private fun ShoulderBadge(
+    label: String,
+    width: Dp,
+    height: Dp,
+    mirrored: Boolean,
+    outline: Path.(w: Float, h: Float) -> Unit,
+) {
+    Box(Modifier.size(width, height), contentAlignment = if (mirrored) Alignment.BottomStart else Alignment.BottomEnd) {
+        Canvas(Modifier.matchParentSize().graphicsLayer { if (mirrored) scaleX = -1f }) {
+            val p = Path().apply { outline(size.width, size.height) }
+            drawPath(p, BadgeSlate)
+            drawPath(p, BadgeEdge, style = Stroke(0.8.dp.toPx()))
+        }
+        Text(
+            label, color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Black, maxLines = 1,
+            modifier = Modifier.padding(horizontal = 3.dp, vertical = 2.dp),
+        )
     }
 }
 
@@ -416,3 +506,28 @@ fun fullDate(s: String?): String =
     parseDate(s)?.let { shortDate.format(it.atZone(ZoneId.systemDefault())) }.orEmpty()
 
 fun num(n: Int): String = NumberFormat.getIntegerInstance().format(n)
+
+/**
+ * Want to Play button for a game row: + to add, ✓ when it's on the list
+ * (tap to remove). X does the same for the selected row.
+ */
+@Composable
+fun WantToggle(vm: AppViewModel, gameId: Int) {
+    val wanted = vm.isWanted(gameId) == true
+    val busy = vm.wantBusy == gameId
+    Icon(
+        when {
+            busy -> Icons.Rounded.Refresh
+            wanted -> Icons.Rounded.Check
+            else -> Icons.Rounded.Add
+        },
+        contentDescription = if (wanted) "On Want to Play" else "Add to Want to Play",
+        tint = if (wanted) Palette.Accent else Palette.Dim,
+        modifier = Modifier
+            .size(26.dp)
+            .clip(CircleShape)
+            .clickable { vm.toggleWantToPlay(gameId) }
+            .background(if (wanted) Palette.Accent.copy(alpha = 0.15f) else Palette.SurfaceHi)
+            .padding(4.dp),
+    )
+}

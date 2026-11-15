@@ -3,7 +3,6 @@ package app.wasabi.data
 import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
-import org.json.JSONObject
 
 /**
  * The retroachievements.org website session, used only to add and remove
@@ -55,8 +54,7 @@ object RaWeb {
      * browser check, so it has to be called from here, not from the app.
      * Reports JSON through WasabiBridge.data(nonce, json), or "" on failure.
      */
-    fun gamePageScript(nonce: String, apiKey: String): String {
-        val key = JSONObject.quote(apiKey)
+    fun gamePageScript(nonce: String): String {
         return """
         (async function () {
           try {
@@ -79,22 +77,23 @@ object RaWeb {
               similar: (p.similarGames || []).map(game)
             };
             if (out.series) {
+              // The website's own hub list (what /hub/{id} pages use): public, no sign-in.
               var list = [];
-              for (var page = 1; page <= 4; page++) {
-                var r = await fetch('/api/v2/hubs/' + out.series.id + '/games?sort=releasedAt&page%5Bsize%5D=50&page%5Bnumber%5D=' + page, {
+              for (var page = 1; page <= 3; page++) {
+                var r = await fetch('/internal-api/hub/' + out.series.id + '/games?sort=releasedAt&page%5Bsize%5D=200&page%5Bnumber%5D=' + page, {
                   credentials: 'same-origin',
-                  headers: { 'Accept': 'application/vnd.api+json', 'X-API-Key': $key }
+                  headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
                 });
                 if (!r.ok) { out.seriesStatus = r.status; break; }
                 var j = await r.json();
-                var data = j.data || [];
-                data.forEach(function (d) {
-                  var a = d.attributes || {};
-                  list.push({ id: parseInt(d.id, 10), title: a.title || '', badgeUrl: a.badgeUrl || null,
-                              achievements: a.achievementsPublished || 0, points: a.pointsTotal || 0,
-                              released: a.releasedAt || null });
+                (j.items || []).forEach(function (e) {
+                  var g = e.game || {};
+                  list.push({ id: g.id, title: g.title || '', badgeUrl: g.badgeUrl || null,
+                              system: (g.system && g.system.name) || null,
+                              achievements: g.achievementsPublished || 0, points: g.pointsTotal || 0,
+                              released: g.releasedAt || null });
                 });
-                if (data.length < 50 || !(j.links && j.links.next)) break;
+                if (!j.lastPage || page >= j.lastPage) break;
               }
               if (!out.seriesStatus) out.seriesGames = list;
             }

@@ -323,6 +323,7 @@ fun WantRow(vm: AppViewModel, key: String, g: WantGame) {
                 fontSize = 11.sp,
             )
         }
+        WantToggle(vm, g.id)
     }
 }
 
@@ -395,6 +396,7 @@ fun GameRow(
             }
         }
         trailing?.invoke()
+        key.substringAfterLast(':').toIntOrNull()?.let { WantToggle(vm, it) }
     }
 }
 

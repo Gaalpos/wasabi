@@ -106,7 +106,7 @@ class GameState {
 }
 
 /** A website page to read in the hidden browser. */
-data class PageJob(val url: String, val apiKey: String, val nonce: String = System.nanoTime().toString())
+data class PageJob(val url: String, val nonce: String = System.nanoTime().toString())
 
 enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked("Unlocked"), Missable("Missable") }
 
@@ -221,6 +221,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             stack.add(Screen.Home)
             loadProfile()
             ensureTab(tab)
+            if (tab != HomeTab.WantToPlay) loadTab(HomeTab.WantToPlay)   // for the + / ✓ on game rows
             checkForUpdates(manual = false)
         } else {
             stack.add(Screen.Login)
@@ -250,6 +251,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 stack.clear()
                 stack.add(Screen.Home)
                 ensureTab(tab)
+                if (tab != HomeTab.WantToPlay) loadTab(HomeTab.WantToPlay)
                 checkForUpdates(manual = false)
             } catch (e: CancellationException) {
                 throw e
@@ -324,10 +326,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Series hub, other hubs and similar games, read from the website's game page. */
     private fun loadExtras(s: Screen.Game) {
         val st = gameState(s)
-        val key = api?.webApiKey ?: return
+        if (api == null) return
         st.extras = Load.Loading
         if (st.tab == GameTab.Series) st.series = Load.Loading
-        val job = PageJob("${RaWeb.ORIGIN}/game/${s.id}", key)
+        val job = PageJob("${RaWeb.ORIGIN}/game/${s.id}")
         pageCallbacks[job.nonce] = { json ->
             st.extras = runCatching { Load.Ok(RaApi.parseExtras(json!!)) }
                 .getOrElse { Load.Err("Couldn't read this game's page on retroachievements.org.") }
@@ -335,8 +337,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 is Load.Ok -> st.series = when {
                     e.data.series == null -> Load.Ok(emptyList())
                     e.data.seriesGames != null -> Load.Ok(e.data.seriesGames)
-                    e.data.seriesStatus == 401 -> Load.Err("RetroAchievements didn't accept the Web API key for the series list.")
-                    else -> Load.Err("Couldn't load the series' games (error ${e.data.seriesStatus ?: "unknown"}). Press X to retry.")
+                    else -> Load.Err("Couldn't load the series' games (error ${e.data.seriesStatus ?: "unknown"}). Press ${Controls.refresh.label} to retry.")
                 }
                 is Load.Err -> st.series = Load.Err(e.message)
                 else -> Unit

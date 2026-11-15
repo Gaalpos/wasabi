@@ -98,6 +98,7 @@ private fun FriendGameRow(vm: AppViewModel, f: FriendGame) {
             Text("${g.console} · ${num(g.total)} achievements", color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("Played by $who", color = Palette.Accent, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        WantToggle(vm, g.id)
     }
 }
 
@@ -350,6 +351,7 @@ private fun ConsoleGameRow(vm: AppViewModel, g: ConsoleGame) {
             Text(g.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text("${num(g.achievements)} achievements · ${num(g.points)} pts", color = Palette.Dim, fontSize = 11.sp)
         }
+        WantToggle(vm, g.id)
     }
 }
 
@@ -402,6 +404,7 @@ fun SearchTab(vm: AppViewModel) {
                                         Text(g.console, color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text("${num(g.achievements)} achievements · ${num(g.points)} pts", color = Palette.Faint, fontSize = 11.sp)
                                     }
+                                    WantToggle(vm, g.id)
                                 }
                             }
                         }

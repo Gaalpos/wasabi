@@ -46,8 +46,8 @@ Wasabi green means hardcore and silver means softcore.
 | B | Back |
 | L1 / R1 | Previous / next tab (on a game: its tabs) |
 | Y | Sort the library, filter achievements, favorite a system, or remove from Playing |
-| X | Add the game to Want to Play (on a game, or a game selected in a list) |
-| R2 | Refresh. Pick another button (L2, Select, L3, R3) in **Settings → Refresh button** |
+| X | Add or remove the game from Want to Play (on a game, or the selected game in any list; game rows also have a +/✓ button) |
+| R2 | Refresh. Pick L2 or Select instead in **Settings → Refresh button** |
 | Menu (Start) | Jump to the Settings tab (always the last tab): updates, website sign-in, accent color (Wasabi, Teal, Sky, Violet, Pink, Coral, Gold) and which tabs are shown |
 
 A and B work through Android's standard gamepad mapping. If they feel

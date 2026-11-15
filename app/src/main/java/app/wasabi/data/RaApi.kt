@@ -21,8 +21,6 @@ class ApiException(message: String) : Exception(message)
  * the user's personal Web API key, passed as `y`.
  */
 class RaApi(val user: String, private val key: String) {
-    /** For the hidden browser, which makes the API v2 calls (see RaWeb.gamePageScript). */
-    val webApiKey: String get() = key
 
 
     suspend fun profile(of: String = user): Profile {
@@ -288,7 +286,7 @@ class RaApi(val user: String, private val key: String) {
                         id = g.optInt("id"),
                         title = g.str("title").orEmpty(),
                         iconUrl = media(g.str("badgeUrl")),
-                        console = null,
+                        console = g.str("system"),
                         achievements = g.optInt("achievements"),
                         points = g.optInt("points"),
                         released = g.str("released"),
