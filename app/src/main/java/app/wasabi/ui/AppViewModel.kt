@@ -115,6 +115,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // Settings
     var enabledTabs by mutableStateOf(HomeTab.entries.toSet()); private set
     val visibleTabs: List<HomeTab> get() = HomeTab.entries.filter { it in enabledTabs || it == HomeTab.Settings }
+    /** Favorite systems, listed first in Browse. */
+    var favoriteConsoles by mutableStateOf(prefs.favoriteConsoles); private set
+
     /** Last tab-strip direction: +1 moving right, -1 moving left. */
     var tabDirection by mutableStateOf(1); private set
 
@@ -513,11 +516,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** The Y button: sort the library, or filter a game's achievements. */
     fun option() {
         when (screen) {
-            Screen.Home -> if (tab == HomeTab.Library) {
+            Screen.Home -> if (tab == HomeTab.Browse) {
+                // Star or unstar the focused system; focus follows it to its new spot.
+                lastFocus[HomeTab.Browse.name]?.removePrefix("c:")?.toIntOrNull()?.let {
+                    toggleFavoriteConsole(it)
+                    focusTarget = "c:$it"
+                }
+            } else if (tab == HomeTab.Library) {
                 librarySort = LibrarySort.entries[(librarySort.ordinal + 1) % LibrarySort.entries.size]
                 viewModelScope.launch { listState(HomeTab.Library).scrollToItem(0) }
                 focusTarget = sortedLibrary().firstOrNull()?.let { "g:${it.id}" }
             }
+            is Screen.ConsoleGames -> toggleFavoriteConsole((screen as Screen.ConsoleGames).id)
             is Screen.Game -> {
                 achFilter = AchFilter.entries[(achFilter.ordinal + 1) % AchFilter.entries.size]
                 viewModelScope.launch { gameListState.scrollToItem(0) }
@@ -554,6 +564,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun isFavoriteConsole(id: Int) = id in favoriteConsoles
+
+    fun toggleFavoriteConsole(id: Int) {
+        favoriteConsoles = if (id in favoriteConsoles) favoriteConsoles - id else favoriteConsoles + id
+        prefs.favoriteConsoles = favoriteConsoles
+    }
+
+    /** Systems for Browse: favorites first, then the rest, each A–Z. */
+    fun sortedConsoles(): Pair<List<Console>, List<Console>> =
+        (consoles as? Load.Ok)?.data.orEmpty().partition { it.id in favoriteConsoles }
+
     /** Console games matching the search box (title words in any order). */
     fun filteredConsoleGames(): List<ConsoleGame> {
         val all = (consoleGames as? Load.Ok)?.data.orEmpty()
@@ -580,7 +601,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Library -> sortedLibrary().map { "g:${it.id}" }
         HomeTab.Unlocks -> (unlocks as? Load.Ok)?.data.orEmpty().map { "u:${it.achievementId}:${it.date}" }
         HomeTab.Following -> (following as? Load.Ok)?.data.orEmpty().map { "f:${it.user}" }
-        HomeTab.Browse -> (consoles as? Load.Ok)?.data.orEmpty().map { "c:${it.id}" }
+        HomeTab.Browse -> sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
         HomeTab.Search -> searchResults().map { "sg:${it.id}" }
         HomeTab.Profile -> listOf("signout")
         HomeTab.Settings -> listOf("upd", "web") + AccentColor.entries.map { "ac:${it.name}" } +

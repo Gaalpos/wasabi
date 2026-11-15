@@ -284,4 +284,9 @@ class Prefs(context: Context) {
     var tabs: String?
         get() = sp.getString("tabs", null)
         set(v) = sp.edit().putString("tabs", v).apply()
+
+    /** Favorite system (console) ids, shown first in Browse. */
+    var favoriteConsoles: Set<Int>
+        get() = sp.getString("favConsoles", null)?.split(',')?.mapNotNull { it.toIntOrNull() }?.toSet().orEmpty()
+        set(v) = sp.edit().putString("favConsoles", v.joinToString(",")).apply()
 }

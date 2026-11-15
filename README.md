@@ -16,7 +16,7 @@ the built-in buttons as well as touch.
 | **Library** | Every game you've unlocked something in; sort by recent, progress or name |
 | **Unlocks** | Your unlocks from the last 30 days |
 | **Following** | Players you follow; open one to see their recent games, unlocks and per-game progress |
-| **Browse** | Pick a console and search its games with achievements |
+| **Browse** | Pick a system and search its games with achievements. Press **Y** (or tap the star) to favorite a system; favorites stay at the top |
 | **Search** | Search every game with achievements by name (game lists are cached for a week) |
 | **Profile** | Points, RetroPoints, member since, last seen (rich presence), sign out |
 

@@ -92,6 +92,7 @@ fun HomeScreen(vm: AppViewModel) {
                 HomeTab.Profile -> HintBar("X" to "Refresh", "L1/R1" to "Tabs", "Start" to "Settings")
                 HomeTab.Settings -> HintBar("A" to "Change", "X" to "Check for updates", "L1/R1" to "Tabs")
                 HomeTab.Search -> HintBar("A" to "Open", "X" to "Reload games", "L1/R1" to "Tabs")
+                HomeTab.Browse -> HintBar("A" to "Open", "Y" to "Favorite", "X" to "Refresh", "L1/R1" to "Tabs")
                 else -> HintBar("A" to "Open", "X" to "Refresh", "L1/R1" to "Tabs")
             }
         }

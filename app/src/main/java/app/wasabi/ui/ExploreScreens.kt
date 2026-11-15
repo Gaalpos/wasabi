@@ -1,5 +1,10 @@
 package app.wasabi.ui
 
+import app.wasabi.data.Console
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -239,24 +245,43 @@ fun BrowseTab(vm: AppViewModel) {
     when (val s = vm.consoles) {
         null, Load.Loading -> LoadingView()
         is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
-        is Load.Ok -> CardGrid(vm.listState(HomeTab.Browse)) {
-            fullWidthItem("hint") {
-                Text(
-                    "Pick a console to search its games",
-                    color = Palette.Dim, fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 2.dp, top = 2.dp, bottom = 2.dp),
-                )
-            }
-            items(s.data, key = { it.id }) { c ->
-                FocusRow("c:${c.id}", vm, onClick = { vm.openConsole(c) }) {
-                    Thumb(c.iconUrl, 32.dp)
-                    Text(
-                        c.name, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
-                    )
+        is Load.Ok -> {
+            val (favorites, others) = vm.sortedConsoles()
+            CardGrid(vm.listState(HomeTab.Browse)) {
+                if (favorites.isNotEmpty()) {
+                    fullWidthItem("h:fav") { SectionTitle("Favorites") }
+                    items(favorites, key = { it.id }) { c -> ConsoleRow(vm, c) }
+                    fullWidthItem("h:all") { SectionTitle("All systems") }
+                } else {
+                    fullWidthItem("hint") {
+                        Text(
+                            "Pick a system to search its games. Press Y or tap the star to keep favorites at the top.",
+                            color = Palette.Dim, fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 2.dp, top = 2.dp, bottom = 2.dp),
+                        )
+                    }
                 }
+                items(others, key = { it.id }) { c -> ConsoleRow(vm, c) }
             }
         }
+    }
+}
+
+@Composable
+private fun ConsoleRow(vm: AppViewModel, c: Console) {
+    val fav = vm.isFavoriteConsole(c.id)
+    FocusRow("c:${c.id}", vm, onClick = { vm.openConsole(c) }) {
+        Thumb(c.iconUrl, 32.dp)
+        Text(
+            c.name, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+        )
+        Icon(
+            Icons.Rounded.Star,
+            contentDescription = if (fav) "Remove from favorites" else "Add to favorites",
+            tint = if (fav) Palette.Accent else Palette.Faint,
+            modifier = Modifier.size(22.dp).clip(CircleShape).clickable { vm.toggleFavoriteConsole(c.id) },
+        )
     }
 }
 
@@ -281,6 +306,14 @@ fun ConsoleScreen(vm: AppViewModel, screen: Screen.ConsoleGames) {
                     )
                 }
             }
+            val fav = vm.isFavoriteConsole(screen.id)
+            Pill(
+                if (fav) "Favorite" else "Add favorite",
+                onClick = { vm.toggleFavoriteConsole(screen.id) },
+                selected = fav,
+                compact = true,
+                icon = Icons.Rounded.Star,
+            )
         }
         OutlinedTextField(
             value = vm.consoleQuery,
@@ -305,7 +338,7 @@ fun ConsoleScreen(vm: AppViewModel, screen: Screen.ConsoleGames) {
                 }
             }
         }
-        HintBar("A" to "Open", "B" to "Back", "X" to "Refresh")
+        HintBar("A" to "Open", "B" to "Back", "Y" to "Favorite", "X" to "Refresh")
     }
 }
 
