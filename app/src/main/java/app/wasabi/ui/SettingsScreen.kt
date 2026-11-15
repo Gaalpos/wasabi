@@ -132,7 +132,7 @@ private fun Switch(on: Boolean, dimmed: Boolean) {
 fun controlsHelp(): List<Pair<String, String>> = listOf(
     "DPad" to "Move between items",
     "A" to "Open, select or change",
-    "B" to "Go back",
+    "B" to "Go back (closes the keyboard first if it's open)",
     "X" to "Add the game to Want to Play, or remove it (on a game, or the selected game in a list)",
     "Y" to "Sort the library or a system's games, filter achievements, favorite a system, or remove a game from Playing",
     "L1/R1" to "Previous / next tab (on a game: its tabs)",

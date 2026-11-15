@@ -2,6 +2,7 @@ package app.wasabi
 
 import android.os.Bundle
 import android.view.KeyEvent
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -55,6 +56,16 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) hideNavigationBar()   // e.g. after the keyboard, a dialog or the installer
     }
 
+    /** Set while a B press is closing the keyboard, so its release does nothing. */
+    private var closingKeyboard = false
+
+    private fun keyboardVisible(): Boolean =
+        ViewCompat.getRootWindowInsets(window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+
+    private fun hideKeyboard() {
+        WindowCompat.getInsetsController(window, window.decorView).hide(WindowInsetsCompat.Type.ime())
+    }
+
     /**
      * Hides Android's navigation bar (back / home / recents) for more room;
      * B goes back. Swiping up from the bottom edge shows it briefly.
@@ -81,6 +92,19 @@ class MainActivity : ComponentActivity() {
      * swallowed too. A and B keep Android's default handling (open, back).
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // B with the on-screen keyboard open just closes the keyboard (and keeps
+        // what you typed) instead of going back. Its release is swallowed too.
+        if (event.keyCode == KeyEvent.KEYCODE_BUTTON_B) {
+            if (event.action == KeyEvent.ACTION_DOWN && keyboardVisible()) {
+                if (event.repeatCount == 0) hideKeyboard()
+                closingKeyboard = true
+                return true
+            }
+            if (event.action == KeyEvent.ACTION_UP && closingKeyboard) {
+                closingKeyboard = false
+                return true
+            }
+        }
         if (vm.screen == Screen.Login) return super.dispatchKeyEvent(event)
         val action: (() -> Unit)? = when (event.keyCode) {
             Controls.refresh.keyCode -> vm::refresh
