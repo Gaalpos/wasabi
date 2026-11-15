@@ -66,7 +66,7 @@ Or build an APK you can copy over and sideload:
 ./gradlew assembleRelease
 ```
 
-The APK ends up in `app/build/outputs/apk/release/`. It's signed with the
+The APK ends up in `app/build/outputs/wasabi/`, named with its version (for example `wasabi-1.3.apk`). It's signed with the
 debug key, so it installs without setting up a keystore.
 
 ## Project layout

@@ -173,13 +173,13 @@
       <h1><em>RetroAchievements</em> on your Android handheld</h1>
       <p class="lede">A small Android app that shows your recent games, your library, your latest unlocks and every achievement still left to get. It also suggests what to play next, shows what the people you follow are doing, and lets you browse games by console. You can use it entirely with the D-pad.</p>
       <div class="cta">
-        <a class="btn btn-main" href="https://github.com/Gaalpos/wasabi/releases/latest/download/wasabi.apk">
+        <a class="btn btn-main" data-apk href="https://github.com/Gaalpos/wasabi/releases/latest">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 20h16"/></svg>
           Download APK
         </a>
         <a class="btn btn-ghost" href="https://github.com/Gaalpos/wasabi">View on GitHub</a>
       </div>
-      <div class="meta">Free and open source · Android 8.0+ · about 1.4 MB</div>
+      <div class="meta" id="apk-meta">Free and open source · Android 8.0+</div>
     </div>
 
     <div class="device" role="img" aria-label="Drawing of Wasabi running on a Retroid Pocket Classic">
@@ -258,7 +258,7 @@
     <h2>Install in a minute</h2>
     <p class="sub">Wasabi isn't on the Play Store. You install the APK directly.</p>
     <ol class="steps">
-      <li><div><h3>Download the APK</h3><p>Open this page on your handheld and tap <a href="https://github.com/Gaalpos/wasabi/releases/latest/download/wasabi.apk">Download APK</a>, or copy the file over from your computer.</p></div></li>
+      <li><div><h3>Download the APK</h3><p>Open this page on your handheld and tap <a data-apk href="https://github.com/Gaalpos/wasabi/releases/latest">Download APK</a>, or copy the file over from your computer.</p></div></li>
       <li><div><h3>Allow the install</h3><p>Open the file. If Android asks, allow your browser or file manager to install unknown apps.</p></div></li>
       <li><div><h3>Get your Web API key</h3><p>On retroachievements.org, go to Settings → Authentication → Web API Key. Use the key, not your password. It stays on your device.</p></div></li>
       <li><div><h3>Sign in</h3><p>Enter your username and key, and your progress loads.</p></div></li>
@@ -272,5 +272,21 @@
     <span><a href="https://github.com/Gaalpos/wasabi">GitHub</a> · <a href="https://github.com/Gaalpos/wasabi/releases">Releases</a></span>
   </footer>
 </div>
+<script>
+  // APK names include the version (wasabi-1.3.apk), so look up the newest
+  // release's APK. Without it, the links open the releases page instead.
+  fetch("https://api.github.com/repos/Gaalpos/wasabi/releases/latest")
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(rel => {
+      const apk = (rel.assets || []).find(a => a.name.endsWith(".apk"));
+      if (!apk) return;
+      document.querySelectorAll("a[data-apk]").forEach(a => { a.href = apk.browser_download_url; });
+      const version = (rel.tag_name || "").replace(/^v/, "");
+      const mb = (apk.size / 1048576).toFixed(1);
+      document.getElementById("apk-meta").textContent =
+        `Version ${version} · Free and open source · Android 8.0+ · ${mb} MB`;
+    })
+    .catch(() => {});
+</script>
 </body>
 </html>

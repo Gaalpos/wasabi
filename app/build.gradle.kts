@@ -1,3 +1,5 @@
+import com.android.build.api.artifact.SingleArtifact
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -36,6 +38,22 @@ android {
 
     buildFeatures {
         compose = true
+    }
+}
+
+// After assembling, copy the APK to build/outputs/wasabi/ with the version in
+// its name: wasabi-1.3.apk (release) or wasabi-1.3-debug.apk (debug).
+val appVersion = android.defaultConfig.versionName ?: "dev"
+androidComponents {
+    onVariants { variant ->
+        val suffix = if (variant.buildType == "release") "" else "-${variant.name}"
+        val cap = variant.name.replaceFirstChar { it.uppercase() }
+        val copyApk = tasks.register<Copy>("copy${cap}VersionedApk") {
+            from(variant.artifacts.get(SingleArtifact.APK)) { include("*.apk") }
+            into(layout.buildDirectory.dir("outputs/wasabi"))
+            rename { "wasabi-$appVersion$suffix.apk" }
+        }
+        tasks.matching { it.name == "assemble$cap" }.configureEach { finalizedBy(copyApk) }
     }
 }
 
