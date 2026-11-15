@@ -107,6 +107,7 @@ private fun AwardRow(vm: AppViewModel, key: String, a: AwardItem) {
             if (a.console.isNotEmpty()) Text(a.console, color = Palette.Dim, fontSize = 11.sp, maxLines = 1)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Tag(label, color)
+                if (a.kind == "mastered" || a.kind == "beaten-hardcore") HardcoreBadge()
                 a.date?.let { Text(fullDate(it), color = Palette.Faint, fontSize = 11.sp) }
             }
         }

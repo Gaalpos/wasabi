@@ -212,7 +212,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // Settings
     var enabledTabs by mutableStateOf(HomeTab.entries.toSet()); private set
-    val visibleTabs: List<HomeTab> get() = HomeTab.entries.filter { it in enabledTabs || it == HomeTab.Settings }
+    /** Every home tab except Settings (always last), in the order chosen in Settings. */
+    var tabOrder by mutableStateOf(HomeTab.entries.filter { it != HomeTab.Settings }); private set
+    val visibleTabs: List<HomeTab> get() = tabOrder.filter { it in enabledTabs } + HomeTab.Settings
     /** Games hidden from Playing, and the last one hidden (for Undo). */
     var hiddenPlaying by mutableStateOf(prefs.hiddenPlaying); private set   // id -> last played when hidden
     var lastHidden by mutableStateOf<RecentGame?>(null); private set
@@ -345,6 +347,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         prefs.tabs?.let { saved ->
             val tabs = saved.split(',').mapNotNull { n -> HomeTab.entries.find { it.name == n } }.toSet()
             if (tabs.isNotEmpty()) enabledTabs = tabs
+        }
+        prefs.tabOrder?.let { saved ->
+            val order = saved.split(',').mapNotNull { n -> HomeTab.entries.find { it.name == n && it != HomeTab.Settings } }.distinct()
+            tabOrder = order + tabOrder.filter { it !in order }
         }
         tab = visibleTabs.first()
         val u = prefs.user
@@ -585,6 +591,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             tab = visibleTabs.first()
             ensureTab(tab)
         }
+    }
+
+    /** Moves a home tab one place up ([up]) or down in the tab order (wraps around). */
+    fun moveTab(t: HomeTab, up: Boolean) {
+        val i = tabOrder.indexOf(t)
+        if (i < 0) return
+        val list = tabOrder.toMutableList()
+        list.removeAt(i)
+        val j = if (up) (if (i == 0) list.size else i - 1) else (if (i == list.size) 0 else i + 1)
+        list.add(j, t)
+        tabOrder = list
+        prefs.tabOrder = list.joinToString(",") { it.name }
+        focusTarget = "tab:${t.name}"
     }
 
     // ---- want to play ----
@@ -1061,6 +1080,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
             } else if (tab == HomeTab.Following) {
                 toggleFollowMode()
+            } else if (tab == HomeTab.Settings) {
+                // Move the focused tab up in the order.
+                lastFocus[HomeTab.Settings.name]?.removePrefix("tab:")
+                    ?.let { n -> tabOrder.find { it.name == n } }?.let { moveTab(it, up = true) }
             } else if (tab == HomeTab.Library) {
                 librarySort = LibrarySort.entries[(librarySort.ordinal + 1) % LibrarySort.entries.size]
                 viewModelScope.launch { listState(HomeTab.Library).scrollToItem(0) }
@@ -1228,7 +1251,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             else listOf("list:MostPlayed", "list:Hacks") + visibleCommunity.map { "community:${it.name}" } + sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
         HomeTab.Profile -> listOf("p:awards", "p:stats", "signout")
         HomeTab.Settings -> listOf("upd", "web", "notif") + CommunityKind.entries.map { "bl:${it.name}" } + controlsHelp().indices.map { "ctl:$it" } + RefreshButton.entries.map { "rb:${it.name}" } + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
-            HomeTab.entries.filter { it != HomeTab.Settings }.map { "tab:${it.name}" }
+            tabOrder.map { "tab:${it.name}" }
     }
 
     private fun keysHere(): List<String> = when (val s = screen) {

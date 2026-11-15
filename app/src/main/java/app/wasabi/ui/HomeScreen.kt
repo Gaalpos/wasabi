@@ -98,7 +98,7 @@ fun HomeScreen(vm: AppViewModel) {
             when (vm.tab) {
                 HomeTab.Library -> HintBar("A" to "Open", "X" to "Want to Play", "Y" to "Sort", "L1/R1" to "Tabs", REFRESH to "Refresh")
                 HomeTab.Profile -> HintBar(REFRESH to "Refresh", "L1/R1" to "Tabs", "Start" to "Settings")
-                HomeTab.Settings -> HintBar("A" to "Change", "L1/R1" to "Tabs", REFRESH to "Check for updates")
+                HomeTab.Settings -> HintBar("A" to "Change", "Y" to "Move tab up", "L1/R1" to "Tabs", REFRESH to "Check for updates")
                 HomeTab.Browse -> if (vm.searchQuery.isNotBlank()) {
                     HintBar("A" to "Open", "X" to "Want to Play", "L1/R1" to "Tabs", REFRESH to "Reload games")
                 } else {
@@ -395,6 +395,7 @@ fun GameRow(
             if (progress.total > 0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ProgressLine(progress.fraction, progress.isHardcore, Modifier.weight(1f))
+                    if (progress.isHardcore) HardcoreBadge(Modifier.padding(start = 8.dp))
                     Text(
                         "${progress.shown}/${progress.total}",
                         color = Palette.Dim, fontSize = 11.sp,
@@ -427,6 +428,7 @@ private fun UnlocksTab(vm: AppViewModel) {
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
                             )
+                            if (u.hardcore) HardcoreBadge(Modifier.padding(start = 6.dp))
                             Text(
                                 "${u.points}",
                                 color = if (u.hardcore) Palette.Accent else Palette.Soft,

@@ -563,6 +563,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("webSignedIn", false)
         set(v) = sp.edit().putBoolean("webSignedIn", v).apply()
 
+    /** Home tab order as comma-separated names; null means the default order. */
+    var tabOrder: String?
+        get() = sp.getString("tabOrder", null)
+        set(v) = sp.edit().putString("tabOrder", v).apply()
+
     /** Enabled home tabs as comma-separated names; null means all. */
     var tabs: String?
         get() = sp.getString("tabs", null)

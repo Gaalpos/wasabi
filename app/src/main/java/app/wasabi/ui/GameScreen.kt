@@ -148,6 +148,7 @@ private fun GameHeader(vm: AppViewModel, screen: Screen.Game, g: GameDetail) {
         if (g.total > 0) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ProgressLine(g.fraction, g.isHardcore, Modifier.weight(1f))
+                if (g.isHardcore) HardcoreBadge(Modifier.padding(start = 8.dp))
                 Text(
                     "${g.shown}/${g.total} · ${num(g.pointsEarned)}/${num(g.points)} pts",
                     color = Palette.Dim, fontSize = 11.sp, modifier = Modifier.padding(start = 8.dp),
@@ -321,6 +322,7 @@ private fun CompareTab(vm: AppViewModel, st: GameState) {
                         Spacer(Modifier.height(3.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             ProgressLine(p.fraction, p.earnedHc >= p.earned && p.earnedHc > 0, Modifier.weight(1f))
+                            if (p.earnedHc >= p.earned && p.earnedHc > 0) HardcoreBadge(Modifier.padding(start = 8.dp))
                             Text("${p.shown}/${p.total}", color = Palette.Dim, fontSize = 11.sp, modifier = Modifier.padding(start = 8.dp))
                         }
                         if (p.earnedHc > 0) Text("${p.earnedHc} in hardcore", color = Palette.Faint, fontSize = 11.sp)

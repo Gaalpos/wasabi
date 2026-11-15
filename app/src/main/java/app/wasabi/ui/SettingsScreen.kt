@@ -10,6 +10,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material3.Icon
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -130,8 +136,8 @@ fun SettingsTab(vm: AppViewModel) {
                 if (on) Text("Selected", color = c.color, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
-        fullWidthItem("h:tabs") { Heading("Tabs", "Choose which tabs appear on the home screen. At least one stays on.") }
-        items(HomeTab.entries.filter { it != HomeTab.Settings }, key = { "tab:${it.name}" }) { t ->
+        fullWidthItem("h:tabs") { Heading("Tabs", "A turns a tab on or off (at least one stays on). Y moves it up, or use the arrows.") }
+        items(vm.tabOrder, key = { "tab:${it.name}" }) { t ->
             val on = t in vm.enabledTabs
             val last = on && vm.enabledTabs.count { it != HomeTab.Settings } == 1
             FocusRow("tab:${t.name}", vm, onClick = { vm.toggleTab(t) }) {
@@ -139,10 +145,22 @@ fun SettingsTab(vm: AppViewModel) {
                     t.label, color = if (on) Palette.Text else Palette.Dim, fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
                 )
+                MoveArrow(Icons.Rounded.KeyboardArrowUp, "Move up") { vm.moveTab(t, up = true) }
+                MoveArrow(Icons.Rounded.KeyboardArrowDown, "Move down") { vm.moveTab(t, up = false) }
                 Switch(on, dimmed = last)
             }
         }
     }
+}
+
+/** A touch-only arrow for reordering (controllers use Y), kept out of D-pad focus. */
+@Composable
+private fun MoveArrow(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Icon(
+        icon, contentDescription = label, tint = Palette.Dim,
+        modifier = Modifier.size(28.dp).clip(CircleShape).focusProperties { canFocus = false }
+            .clickable(onClick = onClick).padding(3.dp),
+    )
 }
 
 @Composable

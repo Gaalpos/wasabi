@@ -277,6 +277,7 @@ fun UnlockRow(vm: AppViewModel, key: String, u: Unlock, onClick: () -> Unit) {
                     u.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                 )
+                if (u.hardcore) HardcoreBadge(Modifier.padding(start = 6.dp))
                 Text(
                     "${u.points}",
                     color = if (u.hardcore) Palette.Accent else Palette.Soft,

@@ -70,6 +70,7 @@ fun AchievementScreen(vm: AppViewModel, screen: Screen.AchievementDetail) {
                             FocusRow("au:$i", vm, onClick = { vm.openUser(u.user) }) {
                                 Thumb("$MEDIA/UserPic/${u.user}.png", 32.dp, shape = CircleShape)
                                 Text(u.user, color = Palette.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (u.hardcore) HardcoreBadge()
                                 Text(ago(u.date) + if (u.hardcore) "" else " · softcore", color = if (u.hardcore) Palette.Accent else Palette.Dim, fontSize = 11.sp)
                             }
                         }

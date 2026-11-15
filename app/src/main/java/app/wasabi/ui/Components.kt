@@ -373,7 +373,10 @@ fun AwardTag(kind: String?) {
         "beaten-softcore" -> "Beaten" to Palette.Soft
         else -> return
     }
-    Tag(label, color)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Tag(label, color)
+        if (kind == "mastered" || kind == "beaten-hardcore") HardcoreBadge()
+    }
 }
 
 /** Small tinted label, e.g. "Mastered" or "Follows you". */
