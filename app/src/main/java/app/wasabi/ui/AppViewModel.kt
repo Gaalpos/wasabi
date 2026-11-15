@@ -20,6 +20,8 @@ import app.wasabi.data.RaApi
 import app.wasabi.data.RecentGame
 import app.wasabi.data.Suggestions
 import app.wasabi.data.Unlock
+import app.wasabi.data.UpdateInfo
+import app.wasabi.data.Updater
 import app.wasabi.data.UserView
 import app.wasabi.data.WantGame
 import app.wasabi.data.suggestions
@@ -27,6 +29,7 @@ import app.wasabi.data.userView
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.io.File
 
 sealed interface Screen {
     data object Login : Screen
@@ -57,6 +60,16 @@ enum class HomeTab(val label: String) {
     Search("Search"),
     Profile("Profile"),
 }
+sealed interface UpdateState {
+    data object Idle : UpdateState
+    data object Checking : UpdateState
+    data object UpToDate : UpdateState
+    data class Available(val info: UpdateInfo) : UpdateState
+    data class Downloading(val info: UpdateInfo, val progress: Float) : UpdateState
+    data class Ready(val info: UpdateInfo, val apk: File) : UpdateState
+    data class Failed(val message: String) : UpdateState
+}
+
 enum class LibrarySort(val label: String) { Recent("Recent"), Progress("Progress"), Name("A–Z") }
 enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked("Unlocked") }
 
@@ -95,6 +108,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var enabledTabs by mutableStateOf(HomeTab.entries.toSet()); private set
     val visibleTabs: List<HomeTab> get() = HomeTab.entries.filter { it in enabledTabs }
     val settingsListState = LazyGridState()
+
+    // In-app updates from GitHub releases.
+    val installedVersion: String = Updater.installedVersion(app)
+    var update by mutableStateOf<UpdateState>(UpdateState.Idle); private set
+    /** Bumped to ask the UI to open Android's installer for the downloaded APK. */
+    var installRequest by mutableStateOf(0); private set
+    private var installAfterResume = false
+    private var updateDismissed by mutableStateOf(false)
+    val showUpdateBanner: Boolean
+        get() = !updateDismissed && update.let { it is UpdateState.Available || it is UpdateState.Downloading || it is UpdateState.Ready }
 
     /** Set when the RA site was opened to edit Want to Play; refresh on return. */
     private var wantToPlayEdited = false
@@ -137,6 +160,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             stack.add(Screen.Home)
             loadProfile()
             ensureTab(tab)
+            checkForUpdates(manual = false)
         } else {
             stack.add(Screen.Login)
         }
@@ -165,6 +189,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 stack.clear()
                 stack.add(Screen.Home)
                 ensureTab(tab)
+                checkForUpdates(manual = false)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -212,7 +237,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun openSettings() {
         if (screen == Screen.Settings || screen == Screen.Login) return
         stack.add(Screen.Settings)
-        focusTarget = "ac:${Palette.accent.name}"
+        focusTarget = "upd"
+        if (update == UpdateState.Idle || update is UpdateState.Failed) checkForUpdates(manual = true)
     }
 
     fun setAccent(c: AccentColor) {
@@ -242,8 +268,62 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         wantToPlayEdited = true
     }
 
-    /** Back from the browser: pick up Want to Play changes. */
+    // ---- updates ----
+
+    /** Looks for a newer release. Quiet unless [manual] (then errors show). */
+    fun checkForUpdates(manual: Boolean) {
+        val busy = update is UpdateState.Checking || update is UpdateState.Downloading
+        if (busy) return
+        update = UpdateState.Checking
+        if (manual) updateDismissed = false
+        viewModelScope.launch {
+            update = try {
+                Updater.check(installedVersion)?.let { UpdateState.Available(it) } ?: UpdateState.UpToDate
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (manual) UpdateState.Failed(RaApi.friendly(e)) else UpdateState.Idle
+            }
+        }
+    }
+
+    /** Downloads the available update, then asks the UI to install it. */
+    fun startUpdate() {
+        when (val u = update) {
+            is UpdateState.Ready -> installRequest++
+            is UpdateState.Available -> viewModelScope.launch {
+                update = UpdateState.Downloading(u.info, 0f)
+                update = try {
+                    val apk = Updater.download(getApplication<Application>(), u.info) { p ->
+                        update = UpdateState.Downloading(u.info, p)
+                    }
+                    installRequest++
+                    UpdateState.Ready(u.info, apk)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    UpdateState.Failed(RaApi.friendly(e))
+                }
+            }
+            else -> Unit
+        }
+    }
+
+    fun dismissUpdate() {
+        updateDismissed = true
+    }
+
+    /** Android needs "install unknown apps" first; retry when the user returns. */
+    fun installBlocked() {
+        installAfterResume = true
+    }
+
+    /** Back from the browser or a settings page. */
     fun onResume() {
+        if (installAfterResume && update is UpdateState.Ready) {
+            installAfterResume = false
+            installRequest++
+        }
         if (!wantToPlayEdited) return
         wantToPlayEdited = false
         loadTab(HomeTab.WantToPlay)
@@ -408,7 +488,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             v.recentGames.map { "ug:${it.id}" } + v.unlocks.map { "uu:${it.achievementId}:${it.date}" }
         }.orEmpty()
         is Screen.ConsoleGames -> filteredConsoleGames().map { "cg:${it.id}" }
-        Screen.Settings -> AccentColor.entries.map { "ac:${it.name}" } + HomeTab.entries.map { "tab:${it.name}" }
+        Screen.Settings -> listOf("upd") + AccentColor.entries.map { "ac:${it.name}" } + HomeTab.entries.map { "tab:${it.name}" }
         Screen.Login -> emptyList()
     }
 

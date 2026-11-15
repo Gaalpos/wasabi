@@ -37,6 +37,8 @@ fun SettingsScreen(vm: AppViewModel) {
         }
         Box(Modifier.weight(1f)) {
             CardGrid(vm.settingsListState) {
+                fullWidthItem("h:updates") { Heading("Updates", "New versions come from GitHub. Android asks you to confirm each install.") }
+                fullWidthItem("upd") { UpdateSettingsRow(vm) }
                 fullWidthItem("h:accent") { Heading("Accent color", "Used for highlights, selection and hardcore unlocks") }
                 items(AccentColor.entries, key = { "ac:${it.name}" }) { c ->
                     val on = Palette.accent == c

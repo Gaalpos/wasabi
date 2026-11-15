@@ -71,6 +71,17 @@ Or build an APK you can copy over and sideload:
 The APK ends up in `app/build/outputs/wasabi/`, named with its version (for example `wasabi-1.3.apk`). It's signed with the
 debug key, so it installs without setting up a keystore.
 
+## Updates
+
+Wasabi checks GitHub for a newer release when it starts and shows a banner
+when one is out. You can also check from **Settings → Updates**. Choosing
+**Update** downloads the APK and opens Android's installer. The first time,
+Android asks you to let Wasabi install apps, and it confirms every install.
+
+Updates only install over an APK signed with the same key. Release builds
+are signed with this machine's debug key, so build releases on the same
+machine, or set up a release keystore and reinstall once.
+
 ## Project layout
 
 ```
@@ -85,7 +96,9 @@ app/src/main/java/app/wasabi/
   ui/ExploreScreens.kt   For You, Following + user page, Browse + console search
   data/Suggest.kt        how suggestions are picked
   data/Catalog.kt        all-games list for Search, cached on the device
-  ui/SettingsScreen.kt   accent color and tab choices
+  ui/SettingsScreen.kt   updates, accent color and tab choices
+  data/Updater.kt        in-app updates from GitHub releases
+  ui/UpdateUi.kt         update banner and Settings row
   ui/GameScreen.kt       achievement list
 ```
 

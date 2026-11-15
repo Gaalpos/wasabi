@@ -11,7 +11,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import app.wasabi.data.Updater
 import app.wasabi.ui.AppViewModel
 import app.wasabi.ui.WasabiTheme
 import app.wasabi.ui.ConsoleScreen
@@ -21,6 +24,7 @@ import app.wasabi.ui.LoginScreen
 import app.wasabi.ui.Palette
 import app.wasabi.ui.Screen
 import app.wasabi.ui.SettingsScreen
+import app.wasabi.ui.UpdateState
 import app.wasabi.ui.UserScreen
 
 class MainActivity : ComponentActivity() {
@@ -57,6 +61,13 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun App(vm: AppViewModel) {
     BackHandler(enabled = vm.stack.size > 1) { vm.back() }
+    // Open Android's installer when an update finishes downloading or the
+    // user presses Install; retried after granting "install unknown apps".
+    val context = LocalContext.current
+    LaunchedEffect(vm.installRequest) {
+        val ready = vm.update as? UpdateState.Ready ?: return@LaunchedEffect
+        if (vm.installRequest > 0 && !Updater.install(context, ready.apk)) vm.installBlocked()
+    }
     Box(
         Modifier
             .fillMaxSize()

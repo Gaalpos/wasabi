@@ -65,6 +65,7 @@ fun HomeScreen(vm: AppViewModel) {
                 ProfileBar(vm.profile)
                 Tabs(vm, Modifier.fillMaxWidth().padding(horizontal = 10.dp))
             }
+            UpdateBanner(vm)
             Box(Modifier.weight(1f).padding(top = 4.dp)) {
                 when (vm.tab) {
                     HomeTab.Playing -> PlayingTab(vm)
