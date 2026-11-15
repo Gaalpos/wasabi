@@ -162,6 +162,43 @@ class RaApi(val user: String, private val key: String) {
             )
         }.distinctBy { it.id }.sortedBy { it.title.lowercase() }
 
+    /**
+     * A hub's games via API v2 (JSON:API, authenticated with X-API-Key),
+     * oldest release first. Up to 200 games.
+     */
+    suspend fun hubGames(hubId: Int): List<RelatedGame> {
+        val out = mutableListOf<RelatedGame>()
+        var page = 1
+        while (page <= 4) {
+            val j = JSONObject(getV2("hubs/$hubId/games", "sort" to "releasedAt", "page[number]" to "$page", "page[size]" to "50"))
+            val data = j.optJSONArray("data")?.objects().orEmpty()
+            data.mapTo(out) { d ->
+                val a = d.optJSONObject("attributes") ?: JSONObject()
+                RelatedGame(
+                    id = d.optString("id").toIntOrNull() ?: 0,
+                    title = a.str("title").orEmpty(),
+                    iconUrl = media(a.str("badgeUrl")),
+                    console = null,
+                    achievements = a.optInt("achievementsPublished"),
+                    points = a.optInt("pointsTotal"),
+                    released = a.str("releasedAt"),
+                )
+            }
+            if (data.size < 50 || j.optJSONObject("links")?.str("next") == null) break
+            page++
+        }
+        return out.filter { it.id > 0 }.distinctBy { it.id }
+    }
+
+    /** [who]'s progress in game [gameId]: (softcore count, hardcore count). */
+    suspend fun progressIn(who: String, gameId: Int): Pair<Int, Int> {
+        val body = get("API_GetUserProgress.php", arrayOf("u" to who, "i" to "$gameId")).trim()
+        if (!body.startsWith("{")) return 0 to 0   // [] for unknown users
+        val j = JSONObject(body)
+        val p = j.optJSONObject("$gameId") ?: return 0 to 0
+        return p.optInt("NumAchieved") to p.optInt("NumAchievedHardcore")
+    }
+
     suspend fun game(id: Int, of: String = user): GameDetail {
         val j = obj("API_GetGameInfoAndUserProgress.php", "g" to "$id", "u" to of, "a" to "1")
         // "Achievements" is an object keyed by id, or an empty array when there are none.
@@ -225,6 +262,31 @@ class RaApi(val user: String, private val key: String) {
         return JSONArray(body)
     }
 
+    /** API v2 request: same key, sent as the X-API-Key header. */
+    private suspend fun getV2(path: String, vararg params: Pair<String, String>): String =
+        withContext(Dispatchers.IO) {
+            val query = params.joinToString("&") { (k, v) -> "${URLEncoder.encode(k, "UTF-8")}=${URLEncoder.encode(v, "UTF-8")}" }
+            val conn = URL("$BASE_V2/$path?$query").openConnection() as HttpURLConnection
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 20_000
+            conn.setRequestProperty("User-Agent", "Wasabi/1.0 (Android)")
+            conn.setRequestProperty("Accept", "application/vnd.api+json")
+            conn.setRequestProperty("X-API-Key", key)
+            try {
+                val code = conn.responseCode
+                val body = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+                when (code) {
+                    in 200..299 -> body
+                    401, 403 -> throw ApiException("Web API key not accepted for this.")
+                    404 -> throw ApiException("Not found on RetroAchievements.")
+                    429 -> throw ApiException("Too many requests. Wait a moment and retry.")
+                    else -> throw ApiException("RetroAchievements returned an error ($code).")
+                }
+            } finally {
+                conn.disconnect()
+            }
+        }
+
     private suspend fun get(endpoint: String, params: Array<out Pair<String, String>>): String =
         withContext(Dispatchers.IO) {
             val query = (params.toList() + ("y" to key)).joinToString("&") { (k, v) ->
@@ -253,6 +315,27 @@ class RaApi(val user: String, private val key: String) {
 
     companion object {
         private const val BASE = "https://retroachievements.org/API"
+        private const val BASE_V2 = "https://retroachievements.org/api/v2"
+
+        /** Parses the JSON that RaWeb.gamePageScript reports. */
+        fun parseExtras(json: String): GameExtras {
+            val j = JSONObject(json)
+            fun hub(h: JSONObject) = HubRef(h.optInt("id"), h.str("title").orEmpty(), h.optInt("games"))
+            return GameExtras(
+                series = j.optJSONObject("series")?.let(::hub)?.takeIf { it.id > 0 },
+                hubs = j.optJSONArray("hubs")?.objects().orEmpty().map(::hub).filter { it.id > 0 },
+                similar = j.optJSONArray("similar")?.objects().orEmpty().map { g ->
+                    RelatedGame(
+                        id = g.optInt("id"),
+                        title = g.str("title").orEmpty(),
+                        iconUrl = media(g.str("badgeUrl")),
+                        console = g.str("system"),
+                        achievements = g.optInt("achievements"),
+                        points = g.optInt("points"),
+                    )
+                }.filter { it.id > 0 },
+            )
+        }
 
         fun media(path: String?): String? = when {
             path.isNullOrBlank() -> null
@@ -299,10 +382,17 @@ class Prefs(context: Context) {
         get() = sp.getString("tabs", null)
         set(v) = sp.edit().putString("tabs", v).apply()
 
-    /** Game ids hidden from the Playing tab (Wasabi only; RA is unchanged). */
-    var hiddenPlaying: Set<Int>
-        get() = sp.getString("hiddenPlaying", null)?.split(',')?.mapNotNull { it.toIntOrNull() }?.toSet().orEmpty()
-        set(v) = sp.edit().putString("hiddenPlaying", v.joinToString(",")).apply()
+    /**
+     * Games hidden from the Playing tab (Wasabi only; RA is unchanged), with
+     * the game's "last played" time when it was hidden: playing it again
+     * makes it reappear. Stored as "id=time;id=time" (older "id,id" too).
+     */
+    var hiddenPlaying: Map<Int, String>
+        get() = sp.getString("hiddenPlaying", null).orEmpty().split(';', ',').mapNotNull { e ->
+            val id = e.substringBefore('=').trim().toIntOrNull() ?: return@mapNotNull null
+            id to e.substringAfter('=', "")
+        }.toMap()
+        set(v) = sp.edit().putString("hiddenPlaying", v.entries.joinToString(";") { "${it.key}=${it.value}" }).apply()
 
     /** Favorite system (console) ids, shown first in Browse. */
     var favoriteConsoles: Set<Int>

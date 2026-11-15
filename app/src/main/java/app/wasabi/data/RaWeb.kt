@@ -47,6 +47,39 @@ object RaWeb {
     """
 
     /**
+     * Reads a game page's embedded data (the website's Inertia page props:
+     * GameShowPagePropsData) and reports the series hub, other hubs and
+     * similar games through WasabiBridge.data(nonce, json), or "" on failure.
+     */
+    fun gamePageScript(nonce: String): String = """
+        (function () {
+          try {
+            var raw = null;
+            var app = document.getElementById('app');
+            if (app) raw = app.getAttribute('data-page');
+            if (!raw) { var s = document.querySelector('script[data-page]'); raw = s && s.textContent; }
+            var p = JSON.parse(raw).props || {};
+            var hub = function (h) { return { id: h.id, title: h.title || '', games: h.gameCount || 0 }; };
+            var game = function (g) {
+              return { id: g.id, title: g.title || '', badgeUrl: g.badgeUrl || null,
+                       system: (g.system && g.system.name) || null,
+                       achievements: g.achievementsPublished || 0, points: g.pointsTotal || 0 };
+            };
+            var out = {
+              series: p.seriesHub && p.seriesHub.hub
+                ? { id: p.seriesHub.hub.id, title: p.seriesHub.hub.title || '', games: p.seriesHub.totalGameCount || 0 }
+                : null,
+              hubs: (p.hubs || []).map(hub),
+              similar: (p.similarGames || []).map(game)
+            };
+            WasabiBridge.data('$nonce', JSON.stringify(out));
+          } catch (e) {
+            WasabiBridge.data('$nonce', '');
+          }
+        })();
+    """
+
+    /**
      * Adds ([add] = true) or removes a game from Want to Play and reports
      * the HTTP status through WasabiBridge.done(nonce, status): 2xx done,
      * 401/419 signed out, -1 network error.
@@ -76,7 +109,13 @@ object RaWeb {
 }
 
 /** Receives results from the hidden WebView's scripts. */
-class WebBridge(private val onDone: (nonce: String, status: Int) -> Unit) {
+class WebBridge(
+    private val onDone: (nonce: String, status: Int) -> Unit = { _, _ -> },
+    private val onData: (nonce: String, json: String) -> Unit = { _, _ -> },
+) {
     @JavascriptInterface
     fun done(nonce: String, status: Int) = onDone(nonce, status)
+
+    @JavascriptInterface
+    fun data(nonce: String, json: String) = onData(nonce, json)
 }

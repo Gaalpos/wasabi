@@ -26,6 +26,7 @@ import app.wasabi.ui.Screen
 import app.wasabi.ui.UpdateState
 import app.wasabi.ui.UserScreen
 import app.wasabi.ui.RaWebWorker
+import app.wasabi.ui.RaPageWorker
 import app.wasabi.ui.WebSignInScreen
 import app.wasabi.ui.ImageViewer
 
@@ -114,5 +115,6 @@ private fun App(vm: AppViewModel) {
         }
         // Hidden browser for Want to Play changes (only while one is running).
         RaWebWorker(vm)
+        RaPageWorker(vm)
     }
 }

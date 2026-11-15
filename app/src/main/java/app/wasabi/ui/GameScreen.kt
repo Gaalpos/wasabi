@@ -22,6 +22,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
+import app.wasabi.data.RelatedGame
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.List
@@ -56,87 +64,60 @@ import java.util.Locale
 
 @Composable
 fun GameScreen(vm: AppViewModel, screen: Screen.Game) {
+    val st = vm.gameState(screen)
     Column(Modifier.fillMaxSize()) {
-        BoxWithConstraints(Modifier.weight(1f)) {
-            // Landscape 16:9 / 4:3: game info in a side panel, achievements beside it.
-            val sidePanel = maxWidth >= WideWidth && maxWidth > maxHeight
-            when (val s = vm.game) {
-                null, Load.Loading -> LoadingView()
-                is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
-                is Load.Ok -> if (sidePanel) {
-                    Row(Modifier.fillMaxSize()) {
-                        Column(
-                            Modifier.width(260.dp).fillMaxHeight().verticalScroll(rememberScrollState())
-                                .padding(start = 14.dp, top = 10.dp, end = 4.dp, bottom = 10.dp),
-                        ) { GameHeader(vm, s.data, stacked = true) }
-                        AchievementGrid(vm, s.data, withHeader = false, modifier = Modifier.weight(1f))
+        when (val s = st.detail) {
+            Load.Loading -> Box(Modifier.weight(1f)) { LoadingView() }
+            is Load.Err -> Box(Modifier.weight(1f)) { ErrorView(s.message, vm) { vm.refresh() } }
+            is Load.Ok -> {
+                GameHeader(vm, screen, s.data)
+                GameTabStrip(vm, st)
+                Box(Modifier.weight(1f).padding(top = 2.dp)) {
+                    when (st.tab) {
+                        GameTab.Achievements -> AchievementsTab(vm, st, s.data)
+                        GameTab.Info -> InfoTab(vm, st, s.data)
+                        GameTab.Series -> SeriesTab(vm, st, screen)
+                        GameTab.Similar -> SimilarTab(vm, st)
+                        GameTab.Compare -> CompareTab(vm, st)
                     }
-                } else {
-                    AchievementGrid(vm, s.data, withHeader = true)
                 }
             }
         }
-        HintBar("B" to "Back", "Y" to "Filter", "X" to "Refresh")
-    }
-}
-
-@Composable
-private fun AchievementGrid(vm: AppViewModel, g: GameDetail, withHeader: Boolean, modifier: Modifier = Modifier) {
-    val list = vm.filteredAchievements()
-    CardGrid(vm.gameListState, modifier) {
-        if (withHeader) fullWidthItem("header") { GameHeader(vm, g, stacked = false) }
-        if (g.achievements.isEmpty()) {
-            fullWidthItem("none") { EmptyView("This game has no achievements yet.") }
-        } else if (list.isEmpty()) {
-            fullWidthItem("none") {
-                EmptyView(
-                    when (vm.achFilter) {
-                        AchFilter.Locked -> "All unlocked. Nice!"
-                        AchFilter.Missable -> "No missable achievements in this game."
-                        else -> "Nothing unlocked yet."
-                    }
-                )
-            }
+        when (st.tab) {
+            GameTab.Achievements -> HintBar("B" to "Back", "Y" to "Filter", "L1/R1" to "Tabs", "X" to "Refresh")
+            GameTab.Info -> HintBar("A" to "View image", "B" to "Back", "L1/R1" to "Tabs")
+            GameTab.Compare -> HintBar("A" to "Profile", "B" to "Back", "L1/R1" to "Tabs", "X" to "Refresh")
+            else -> HintBar("A" to "Open", "B" to "Back", "L1/R1" to "Tabs", "X" to "Refresh")
         }
-        items(list, key = { it.id }) { a -> AchievementRow(vm, a, g.players) }
     }
 }
 
+/** Compact top: icon, title, Want to Play (focused on open) and your progress. */
 @Composable
-private fun GameHeader(vm: AppViewModel, g: GameDetail, stacked: Boolean) {
-    Column(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (stacked) {
-            Thumb(g.iconUrl, 72.dp)
-            Column {
-                Text(
-                    g.title, color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 3, overflow = TextOverflow.Ellipsis,
-                )
-                Text(g.console, color = Palette.Dim, fontSize = 12.sp)
-                if (g.players > 0) Text("${num(g.players)} players", color = Palette.Faint, fontSize = 11.sp)
-            }
-            AwardTag(g.award)
-        } else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Thumb(g.iconUrl, 64.dp)
+private fun GameHeader(vm: AppViewModel, screen: Screen.Game, g: GameDetail) {
+    Column(
+        Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Thumb(g.iconUrl, 48.dp)
             Column(Modifier.weight(1f)) {
-                Text(
-                    g.title, color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis,
-                )
-                Text(g.console, color = Palette.Dim, fontSize = 12.sp)
-                if (g.players > 0) Text("${num(g.players)} players", color = Palette.Faint, fontSize = 11.sp)
+                Text(g.title, color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(g.console, color = Palette.Dim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    AwardTag(g.award)
+                    screen.user?.let { Tag("$it's progress", Palette.Soft) }
+                }
             }
-            AwardTag(g.award)
         }
-        (vm.screen as? Screen.Game)?.user?.let { Tag("$it's progress", Palette.Soft) }
-        // Actions first, so Want to Play is on screen (and focused) as soon as
-        // the game opens. It adds or removes the game through the website
-        // session in the background, signing in once first if needed (RaWeb).
+        // Want to Play adds or removes the game through the website session in
+        // the background, signing in once first if needed (RaWeb).
         val wanted = vm.isWanted(g.id)
         val busy = vm.wantBusy == g.id
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Pill(
                 when {
@@ -154,20 +135,221 @@ private fun GameHeader(vm: AppViewModel, g: GameDetail, stacked: Boolean) {
                 focusKey = "want", vm = vm,
             )
             Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
-            if (g.total > 0) Pill("Show: ${vm.achFilter.label}", onClick = { vm.option() }, icon = Icons.AutoMirrored.Rounded.List)
         }
         vm.wantError?.let { Text(it, color = Palette.Error, fontSize = 11.sp) }
         if (g.total > 0) {
-            ProgressLine(g.fraction, g.isHardcore)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ProgressLine(g.fraction, g.isHardcore, Modifier.weight(1f))
+                Text(
+                    "${g.shown}/${g.total} · ${num(g.pointsEarned)}/${num(g.points)} pts",
+                    color = Palette.Dim, fontSize = 11.sp, modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
+    }
+}
+
+/** Achievements · Info · Series · Similar · Compare, switched with LB/RB or a tap. */
+@Composable
+private fun GameTabStrip(vm: AppViewModel, st: GameState) {
+    val scroll = rememberScrollState()
+    val bounds = remember { mutableStateMapOf<GameTab, Pair<Int, Int>>() }
+    var viewport by remember { mutableIntStateOf(0) }
+    val margin = with(LocalDensity.current) { 24.dp.roundToPx() }
+    LaunchedEffect(st.tab, viewport, bounds.size) {
+        val all = GameTab.entries
+        val i = st.tab.ordinal
+        val sel = bounds[st.tab] ?: return@LaunchedEffect
+        if (viewport <= 0) return@LaunchedEffect
+        // Keep the selected tab and its neighbors in view when they fit.
+        val left = (all.getOrNull(i - 1)?.let { bounds[it]?.first } ?: sel.first) - margin
+        val right = (all.getOrNull(i + 1)?.let { bounds[it]?.second } ?: sel.second) + margin
+        val (from, to) = if (right - left <= viewport) left to right else (sel.first - margin) to (sel.second + margin)
+        var target = scroll.value
+        if (from < target) target = from
+        if (to > target + viewport) target = to - viewport
+        target = target.coerceIn(0, scroll.maxValue)
+        if (target != scroll.value) scroll.animateScrollTo(target)
+    }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        ButtonBadge("L1")
+        Row(
+            Modifier.weight(1f).padding(horizontal = 6.dp).onSizeChanged { viewport = it.width }.horizontalScroll(scroll),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            GameTab.entries.forEach { t ->
+                Pill(
+                    t.label,
+                    onClick = { vm.selectGameTab(t) },
+                    selected = st.tab == t,
+                    compact = true,
+                    modifier = Modifier.onPlaced { c ->
+                        val x = c.positionInParent().x.toInt()
+                        bounds[t] = x to x + c.size.width
+                    },
+                )
+            }
+        }
+        ButtonBadge("R1")
+    }
+}
+
+@Composable
+private fun AchievementsTab(vm: AppViewModel, st: GameState, g: GameDetail) {
+    val list = vm.filteredAchievements(st)
+    CardGrid(st.listStates.getValue(GameTab.Achievements)) {
+        if (g.achievements.isEmpty()) {
+            fullWidthItem("none") { EmptyView("This game has no achievements yet.") }
+            return@CardGrid
+        }
+        fullWidthItem("filter") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Pill("Show: ${st.filter.label}", onClick = { vm.option() }, compact = true, icon = Icons.AutoMirrored.Rounded.List, focusKey = "filter", vm = vm)
+                Spacer(Modifier.weight(1f))
+                Text("${num(list.size)} shown", color = Palette.Dim, fontSize = 12.sp)
+            }
+        }
+        if (list.isEmpty()) {
+            fullWidthItem("empty") {
+                EmptyView(
+                    when (st.filter) {
+                        AchFilter.Locked -> "All unlocked. Nice!"
+                        AchFilter.Missable -> "No missable achievements in this game."
+                        else -> "Nothing unlocked yet."
+                    }
+                )
+            }
+        }
+        items(list, key = { it.id }) { a -> AchievementRow(vm, a, g.players) }
+    }
+}
+
+/** Images, totals and details; every row is selectable so the D-pad scrolls through it all. */
+@Composable
+private fun InfoTab(vm: AppViewModel, st: GameState, g: GameDetail) {
+    val facts = gameFacts(g)
+    CardGrid(st.listStates.getValue(GameTab.Info)) {
+        if (g.images.isNotEmpty()) fullWidthItem("media") { GameMedia(vm, g) }
+        if (g.total > 0) fullWidthItem("chips") { StatChips(g) }
+        facts.forEachIndexed { i, (label, value) ->
+            item(key = "fact:$i") {
+                FocusRow("fact:$i", vm) {
+                    Text(label, color = Palette.Dim, fontSize = 12.sp, modifier = Modifier.width(78.dp))
+                    Text(value, color = Palette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                }
+            }
+        }
+        if (facts.isEmpty() && g.images.isEmpty()) fullWidthItem("none") { EmptyView("No extra details for this game.") }
+    }
+}
+
+/** The game's series (oldest first), then the other hubs it's in. */
+@Composable
+private fun SeriesTab(vm: AppViewModel, st: GameState, screen: Screen.Game) {
+    when (val e = st.extras) {
+        null, Load.Loading -> LoadingView()
+        is Load.Err -> ErrorView(e.message, vm) { vm.refresh() }
+        is Load.Ok -> CardGrid(st.listStates.getValue(GameTab.Series)) {
+            val series = e.data.series
+            if (series == null) {
+                fullWidthItem("noseries") { SectionHeading("Not part of a series", "RetroAchievements doesn't list a series for this game.") }
+            } else {
+                fullWidthItem("h:series") { SectionHeading(series.title.removePrefix("[Series - ").removeSuffix("]"), "${num(series.games)} games in the series") }
+                when (val list = st.series) {
+                    null, Load.Loading -> fullWidthItem("loading") { Text("Loading the series…", color = Palette.Dim, fontSize = 12.sp) }
+                    is Load.Err -> fullWidthItem("err") { Text(list.message, color = Palette.Error, fontSize = 12.sp) }
+                    is Load.Ok -> items(list.data, key = { "s${it.id}" }) { r ->
+                        RelatedGameRow(vm, "ser:${r.id}", r, current = r.id == screen.id)
+                    }
+                }
+            }
+            val hubs = e.data.hubs.filter { it.id != series?.id }
+            if (hubs.isNotEmpty()) {
+                fullWidthItem("h:hubs") { SectionHeading("Also in", "Other RetroAchievements hubs with this game") }
+                items(hubs, key = { "h${it.id}" }) { h ->
+                    FocusRow("hub:${h.id}", vm) {
+                        Text(h.title, color = Palette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (h.games > 0) Text("${num(h.games)} games", color = Palette.Dim, fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimilarTab(vm: AppViewModel, st: GameState) {
+    when (val e = st.extras) {
+        null, Load.Loading -> LoadingView()
+        is Load.Err -> ErrorView(e.message, vm) { vm.refresh() }
+        is Load.Ok -> if (e.data.similar.isEmpty()) {
+            EmptyView("RetroAchievements doesn't list similar games for this one yet.")
+        } else CardGrid(st.listStates.getValue(GameTab.Similar)) {
+            items(e.data.similar, key = { it.id }) { r -> RelatedGameRow(vm, "sim:${r.id}", r, current = false) }
+        }
+    }
+}
+
+/** You and the people you follow, most progress first. */
+@Composable
+private fun CompareTab(vm: AppViewModel, st: GameState) {
+    when (val c = st.compare) {
+        null, Load.Loading -> LoadingView()
+        is Load.Err -> ErrorView(c.message, vm) { vm.refresh() }
+        is Load.Ok -> CardGrid(st.listStates.getValue(GameTab.Compare)) {
+            if (c.data.none { !it.isMe }) {
+                fullWidthItem("nobody") { SectionHeading("Nobody you follow has played this yet", "Only you so far.") }
+            }
+            items(c.data, key = { it.user }) { p ->
+                FocusRow("cmp:${p.user}", vm, onClick = if (p.isMe) null else ({ vm.openUser(p.user) })) {
+                    Thumb(p.avatarUrl, 36.dp, shape = CircleShape)
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            if (p.isMe) "${p.user} (you)" else p.user,
+                            color = if (p.isMe) Palette.Accent else Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            ProgressLine(p.fraction, p.earnedHc >= p.earned && p.earnedHc > 0, Modifier.weight(1f))
+                            Text("${p.shown}/${p.total}", color = Palette.Dim, fontSize = 11.sp, modifier = Modifier.padding(start = 8.dp))
+                        }
+                        if (p.earnedHc > 0) Text("${p.earnedHc} in hardcore", color = Palette.Faint, fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeading(title: String, sub: String) {
+    Column(Modifier.padding(start = 2.dp, top = 6.dp, bottom = 2.dp)) {
+        Text(title, color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(sub, color = Palette.Dim, fontSize = 11.sp)
+    }
+}
+
+/** A game in a series or similar-games list; opens it. */
+@Composable
+private fun RelatedGameRow(vm: AppViewModel, key: String, r: RelatedGame, current: Boolean) {
+    FocusRow(key, vm, onClick = if (current) null else ({ vm.openGame(r.id, r.title) })) {
+        Thumb(r.iconUrl, 44.dp)
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    r.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+                )
+                if (current) Tag("This game", Palette.Accent)
+            }
+            val sub = listOfNotNull(r.console, r.released?.take(4)).joinToString(" · ")
+            if (sub.isNotEmpty()) Text(sub, color = Palette.Dim, fontSize = 11.sp)
             Text(
-                "${g.shown} of ${g.total} unlocked · ${num(g.pointsEarned)}/${num(g.points)} pts" +
-                    if (g.earnedHc in 1 until g.earned) " · ${g.earnedHc} hardcore" else "",
-                color = Palette.Dim, fontSize = 12.sp,
+                if (r.achievements > 0) "${num(r.achievements)} achievements · ${num(r.points)} pts" else "No achievements yet",
+                color = Palette.Faint, fontSize = 11.sp,
             )
         }
-        GameMedia(vm, g)
-        StatChips(g)
-        GameFacts(g)
     }
 }
 
@@ -305,34 +487,19 @@ private fun StatChips(g: GameDetail) {
     }
 }
 
-/** Developer, publisher, genre, release, players and your playtime. */
-@Composable
-private fun GameFacts(g: GameDetail) {
-    val facts = buildList {
-        g.developer?.let { add("Developer" to it) }
-        g.publisher?.let { add("Publisher" to it) }
-        g.genre?.let { add("Genre" to it) }
-        releaseText(g.released, g.releasedPrecision)?.let { add("Released" to it) }
-        if (g.players > 0) {
-            add("Players" to "${num(g.players)}" + if (g.playersHardcore > 0) " · ${num(g.playersHardcore)} hardcore" else "")
-        }
-        if (g.playtimeSeconds > 0) add("Playtime" to playtime(g.playtimeSeconds))
-        if (g.authors.isNotEmpty()) {
-            val a = g.authors
-            add("Made by" to if (a.size <= 3) a.joinToString(", ") else "${a.take(2).joinToString(", ")} and ${a.size - 2} others")
-        }
+/** Developer, publisher, genre, release, players, your playtime and authors, as (label, value). */
+fun gameFacts(g: GameDetail): List<Pair<String, String>> = buildList {
+    g.developer?.let { add("Developer" to it) }
+    g.publisher?.let { add("Publisher" to it) }
+    g.genre?.let { add("Genre" to it) }
+    releaseText(g.released, g.releasedPrecision)?.let { add("Released" to it) }
+    if (g.players > 0) {
+        add("Players" to "${num(g.players)}" + if (g.playersHardcore > 0) " · ${num(g.playersHardcore)} hardcore" else "")
     }
-    if (facts.isEmpty()) return
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Palette.Surface).padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(3.dp),
-    ) {
-        facts.forEach { (label, value) ->
-            Row {
-                Text(label, color = Palette.Dim, fontSize = 11.sp, modifier = Modifier.width(72.dp))
-                Text(value, color = Palette.Text, fontSize = 12.sp, modifier = Modifier.weight(1f))
-            }
-        }
+    if (g.playtimeSeconds > 0) add("Playtime" to playtime(g.playtimeSeconds))
+    if (g.authors.isNotEmpty()) {
+        val a = g.authors
+        add("Made by" to if (a.size <= 3) a.joinToString(", ") else "${a.take(2).joinToString(", ")} and ${a.size - 2} others")
     }
 }
 

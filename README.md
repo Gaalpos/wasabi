@@ -10,7 +10,7 @@ the built-in buttons as well as touch.
 
 | Tab | Contents |
 | --- | --- |
-| **Playing** | Your 50 most recently played games, with progress bars. Press **Y** (or tap ✕) to remove a game from this list, with Undo; bring them back in Settings. This only hides it in Wasabi: RetroAchievements can't remove a recently played game without resetting its progress |
+| **Playing** | Your 50 most recently played games, with progress bars. Press **Y** (or tap ✕) to remove a game from this list, with Undo; bring them back in Settings. It comes back if you play it again. This only hides it in Wasabi: RetroAchievements can't remove a recently played game without resetting its progress |
 | **For You** | Suggestions: games you're close to mastering, games people you follow are playing, picks from Want to Play |
 | **Want to Play** | Your RetroAchievements Want to Play list, with achievement counts and points. Add or remove a game with the **Want to Play** button on its screen |
 | **Library** | Every game you've unlocked something in; sort by recent, progress or name |
@@ -20,13 +20,20 @@ the built-in buttons as well as touch.
 | **Search** | Search every game with achievements by name (game lists are cached for a week) |
 | **Profile** | Points, RetroPoints, member since, last seen (rich presence), sign out |
 
-Open any game to see everything about it: the title screen, an in-game
-screenshot and box art; developer, publisher, genre and release date; how
-many people play it (and how many in hardcore); your total playtime; and its
-totals in achievements, points, RetroPoints and missables. Each achievement
-shows its badge (grayed out while locked), points and RetroPoints, an unlock
-rate bar with the hardcore share, its author, and missable/progression tags.
-Press **Y** to show all, locked, unlocked or only missable achievements.
+Open any game for its title, Want to Play button and your progress, plus
+five tabs (switch with **LB/RB**):
+
+| Tab | Contents |
+| --- | --- |
+| **Achievements** | Badges (grayed out while locked), points and RetroPoints, an unlock-rate bar with the hardcore share, author, missable/progression tags. **Y** shows all, locked, unlocked or only missable |
+| **Info** | Title screen, in-game shot and box art (A opens them full screen); totals; developer, publisher, genre, release date, players, your playtime and the achievement authors. Every row is selectable, so the D-pad scrolls through it all |
+| **Series** | The game's series, oldest first (API v2 hub games), and the other hubs it belongs to |
+| **Similar** | Games RetroAchievements lists as similar |
+| **Compare** | Your progress next to everyone you follow who has played it |
+
+Series and Similar come from the game's public page on retroachievements.org
+(the Web API doesn't link games to hubs or similar games), read in a hidden
+browser, so they need no sign-in.
 
 Wasabi green means hardcore and silver means softcore.
 

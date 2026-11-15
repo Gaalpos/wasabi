@@ -99,7 +99,7 @@ fun RaWebWorker(vm: AppViewModel) {
             factory = { ctx ->
                 WebView(ctx).apply {
                     settings.javaScriptEnabled = true
-                    addJavascriptInterface(WebBridge { nonce, status -> post { vm.onWebResult(nonce, status) } }, "WasabiBridge")
+                    addJavascriptInterface(WebBridge(onDone = { nonce, status -> post { vm.onWebResult(nonce, status) } }), "WasabiBridge")
                     webViewClient = object : WebViewClient() {
                         private var sent = false
 
@@ -118,6 +118,48 @@ fun RaWebWorker(vm: AppViewModel) {
                     }
                     // A tiny same-origin page, so the script's requests carry the site's cookies.
                     loadUrl("${RaWeb.ORIGIN}/robots.txt")
+                }
+            },
+            onRelease = { it.destroy() },
+        )
+    }
+}
+
+/**
+ * Invisible WebView that opens a public website page (a game page) and reads
+ * its embedded data, for Series and Similar. No sign-in needed. It exists
+ * only while [AppViewModel.pageJob] is set; images are not loaded.
+ */
+@SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
+@Composable
+fun RaPageWorker(vm: AppViewModel) {
+    val job = vm.pageJob ?: return
+    key(job.nonce) {
+        AndroidView(
+            modifier = Modifier.size(1.dp).alpha(0f),
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    settings.javaScriptEnabled = true
+                    settings.loadsImagesAutomatically = false
+                    settings.blockNetworkImage = true
+                    addJavascriptInterface(WebBridge(onData = { nonce, json -> post { vm.onPageData(nonce, json) } }), "WasabiBridge")
+                    webViewClient = object : WebViewClient() {
+                        private var sent = false
+
+                        override fun onPageFinished(view: WebView, url: String) {
+                            if (sent) return
+                            sent = true
+                            view.evaluateJavascript(RaWeb.gamePageScript(job.nonce), null)
+                        }
+
+                        override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                            if (request.isForMainFrame && !sent) {
+                                sent = true
+                                post { vm.onPageData(job.nonce, null) }
+                            }
+                        }
+                    }
+                    loadUrl(job.url)
                 }
             },
             onRelease = { it.destroy() },

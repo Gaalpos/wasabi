@@ -9,9 +9,11 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.wasabi.data.Catalog
+import app.wasabi.data.CompareEntry
 import app.wasabi.data.Console
 import app.wasabi.data.ConsoleGame
 import app.wasabi.data.FollowedUser
+import app.wasabi.data.GameExtras
 import app.wasabi.data.GameDetail
 import app.wasabi.data.LibraryGame
 import app.wasabi.data.Prefs
@@ -19,6 +21,8 @@ import app.wasabi.data.Profile
 import app.wasabi.data.RaApi
 import app.wasabi.data.RaWeb
 import app.wasabi.data.RecentGame
+import app.wasabi.data.RelatedGame
+import app.wasabi.data.compare
 import app.wasabi.data.Suggestions
 import app.wasabi.data.Unlock
 import app.wasabi.data.UpdateInfo
@@ -37,7 +41,7 @@ sealed interface Screen {
     data object Login : Screen
     data object Home : Screen
     /** A game's achievements, with the progress of [user] (null = you). */
-    data class Game(val id: Int, val title: String, val user: String? = null) : Screen
+    data class Game(val id: Int, val title: String, val user: String? = null, val key: Long = System.nanoTime()) : Screen
     /** Someone you follow. */
     data class User(val name: String) : Screen
     /** All games with achievements on one console. */
@@ -81,6 +85,29 @@ sealed interface UpdateState {
 }
 
 enum class LibrarySort(val label: String) { Recent("Recent"), Progress("Progress"), Name("A–Z") }
+/** Tabs on a game's screen. */
+enum class GameTab(val label: String) {
+    Achievements("Achievements"),
+    Info("Info"),
+    Series("Series"),
+    Similar("Similar"),
+    Compare("Compare"),
+}
+
+/** Everything one game screen shows; each open game screen has its own. */
+class GameState {
+    var detail by mutableStateOf<Load<GameDetail>>(Load.Loading)
+    var tab by mutableStateOf(GameTab.Achievements)
+    var filter by mutableStateOf(AchFilter.All)
+    var extras by mutableStateOf<Load<GameExtras>?>(null)
+    var series by mutableStateOf<Load<List<RelatedGame>>?>(null)
+    var compare by mutableStateOf<Load<List<CompareEntry>>?>(null)
+    val listStates = GameTab.entries.associateWith { LazyGridState() }
+}
+
+/** A website page to read in the hidden browser. */
+data class PageJob(val url: String, val nonce: String = System.nanoTime().toString())
+
 enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked("Unlocked"), Missable("Missable") }
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -118,7 +145,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var enabledTabs by mutableStateOf(HomeTab.entries.toSet()); private set
     val visibleTabs: List<HomeTab> get() = HomeTab.entries.filter { it in enabledTabs || it == HomeTab.Settings }
     /** Games hidden from Playing, and the last one hidden (for Undo). */
-    var hiddenPlaying by mutableStateOf(prefs.hiddenPlaying); private set
+    var hiddenPlaying by mutableStateOf(prefs.hiddenPlaying); private set   // id -> last played when hidden
     var lastHidden by mutableStateOf<RecentGame?>(null); private set
 
     /** Favorite systems, listed first in Browse. */
@@ -152,9 +179,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun listState(t: HomeTab) = listStates.getValue(t)
 
     // Game
-    var game by mutableStateOf<Load<GameDetail>?>(null); private set
-    var achFilter by mutableStateOf(AchFilter.All); private set
-    val gameListState = LazyGridState()
+    private val gameStates = mutableMapOf<Screen.Game, GameState>()
+    fun gameState(s: Screen.Game): GameState = gameStates.getOrPut(s) { GameState() }
+    private val currentGame: GameState? get() = (screen as? Screen.Game)?.let { gameState(it) }
+    val game: Load<GameDetail>? get() = currentGame?.detail
+    val achFilter: AchFilter get() = currentGame?.filter ?: AchFilter.All
+
+    /** Website page the hidden browser should read now (series, similar games). */
+    var pageJob by mutableStateOf<PageJob?>(null); private set
+    private val pageCallbacks = mutableMapOf<String, (String?) -> Unit>()
 
     // Another user's page
     var user by mutableStateOf<Load<UserView>?>(null); private set
@@ -242,7 +275,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun clearLists() {
         recent = null; library = null; unlocks = null; wantToPlay = null
         suggested = null; following = null; consoles = null; catalog = null
-        game = null; user = null; consoleGames = null
+        gameStates.clear(); user = null; consoleGames = null
     }
 
     // ---- navigation & controller actions ----
@@ -257,11 +290,77 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun cycleTab(delta: Int) {
-        if (screen != Screen.Home) return
+        val s = screen
+        if (s is Screen.Game) {
+            val all = GameTab.entries
+            val st = gameState(s)
+            selectGameTab(all[(st.tab.ordinal + delta + all.size) % all.size])
+            return
+        }
+        if (s != Screen.Home) return
         val all = visibleTabs
         val i = all.indexOf(tab).coerceAtLeast(0)
         selectTab(all[(i + delta + all.size) % all.size])
         tabDirection = if (delta >= 0) 1 else -1
+    }
+
+    // ---- game tabs ----
+
+    fun selectGameTab(t: GameTab) {
+        val s = screen as? Screen.Game ?: return
+        val st = gameState(s)
+        if (st.tab == t) return
+        st.tab = t
+        when (t) {
+            GameTab.Series -> if (st.extras !is Load.Ok) loadExtras(s) else if (st.series == null) loadSeries(s)
+            GameTab.Similar -> if (st.extras !is Load.Ok) loadExtras(s)
+            GameTab.Compare -> if (st.compare == null || st.compare is Load.Err) loadCompare(s)
+            else -> Unit
+        }
+        restoreFocusHere(preferContent = true)
+    }
+
+    /** Series hub, other hubs and similar games, read from the website's game page. */
+    private fun loadExtras(s: Screen.Game) {
+        val st = gameState(s)
+        st.extras = Load.Loading
+        if (st.tab == GameTab.Series) st.series = Load.Loading
+        val job = PageJob("${RaWeb.ORIGIN}/game/${s.id}")
+        pageCallbacks[job.nonce] = { json ->
+            st.extras = runCatching { Load.Ok(RaApi.parseExtras(json!!)) }
+                .getOrElse { Load.Err("Couldn't read this game's page on retroachievements.org.") }
+            when (val e = st.extras) {
+                is Load.Ok -> if (e.data.series != null) loadSeries(s) else st.series = Load.Ok(emptyList())
+                is Load.Err -> st.series = Load.Err(e.message)
+                else -> Unit
+            }
+            if (screen == s) restoreFocusHere(preferContent = true)
+        }
+        pageJob = job
+        viewModelScope.launch {
+            delay(30_000)
+            if (pageCallbacks.containsKey(job.nonce)) onPageData(job.nonce, null)
+        }
+    }
+
+    /** Result from the hidden browser's page read (null or "" on failure). */
+    fun onPageData(nonce: String, json: String?) {
+        if (pageJob?.nonce == nonce) pageJob = null
+        pageCallbacks.remove(nonce)?.invoke(json?.takeIf { it.isNotBlank() })
+    }
+
+    private fun loadSeries(s: Screen.Game) {
+        val st = gameState(s)
+        val hub = (st.extras as? Load.Ok)?.data?.series ?: return
+        launchLoad("series:${s.key}", { st.series = it }, { if (screen == s) restoreFocusHere(preferContent = true) }) { hubGames(hub.id) }
+    }
+
+    private fun loadCompare(s: Screen.Game) {
+        val st = gameState(s)
+        launchLoad("compare:${s.key}", { st.compare = it }, { if (screen == s) restoreFocusHere(preferContent = true) }) {
+            val total = ((st.detail as? Load.Ok)?.data?.total) ?: 0
+            compare(s.id, total)
+        }
     }
 
     // ---- settings ----
@@ -341,7 +440,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Update the local list right away instead of waiting for a reload. */
     private fun applyWantChange(job: WebJob) {
         val list = (wantToPlay as? Load.Ok)?.data.orEmpty()
-        val g = (game as? Load.Ok)?.data?.takeIf { it.id == job.gameId }
+        val g = gameStates.values.firstNotNullOfOrNull { (it.detail as? Load.Ok)?.data?.takeIf { d -> d.id == job.gameId } }
         wantToPlay = Load.Ok(
             if (job.add) {
                 if (list.any { it.id == job.gameId } || g == null) list
@@ -466,9 +565,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (id <= 0) return
         val s = Screen.Game(id, title, of?.takeUnless { isMe(it) })
         stack.add(s)
-        achFilter = AchFilter.All
-        game = null
-        viewModelScope.launch { gameListState.scrollToItem(0) }
+        gameState(s)
         loadGame(s)
         // So the game screen can say whether it's on your Want to Play list.
         if (wantToPlay == null) launchLoad("want", { wantToPlay = it }) { wantToPlay() }
@@ -504,8 +601,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Returns true when a screen was popped. */
     fun back(): Boolean {
         if (stack.size <= 1) return false
-        when (stack.removeAt(stack.lastIndex)) {
-            is Screen.Game -> { jobs["game"]?.cancel(); game = null }
+        when (val popped = stack.removeAt(stack.lastIndex)) {
+            is Screen.Game -> {
+                listOf("game", "series", "compare").forEach { jobs["$it:${popped.key}"]?.cancel() }
+                gameStates.remove(popped)
+            }
             is Screen.User -> { jobs["user"]?.cancel(); user = null }
             is Screen.ConsoleGames -> { jobs["console"]?.cancel(); consoleGames = null }
             Screen.WebSignIn -> afterSignIn = null
@@ -518,7 +618,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun refresh() {
         when (val s = screen) {
             Screen.Home -> { loadTab(tab); if (tab != HomeTab.Profile && tab != HomeTab.Settings) loadProfile() }
-            is Screen.Game -> loadGame(s)
+            is Screen.Game -> {
+                loadGame(s)
+                val st = gameState(s)
+                when (st.tab) {
+                    GameTab.Series, GameTab.Similar -> loadExtras(s)
+                    GameTab.Compare -> loadCompare(s)
+                    else -> Unit
+                }
+            }
             is Screen.User -> loadUser(s.name)
             is Screen.ConsoleGames -> loadConsole(s.id)
             is Screen.Images, Screen.WebSignIn, Screen.Login -> Unit
@@ -542,10 +650,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 focusTarget = sortedLibrary().firstOrNull()?.let { "g:${it.id}" }
             }
             is Screen.ConsoleGames -> toggleFavoriteConsole((screen as Screen.ConsoleGames).id)
-            is Screen.Game -> {
-                achFilter = AchFilter.entries[(achFilter.ordinal + 1) % AchFilter.entries.size]
-                viewModelScope.launch { gameListState.scrollToItem(0) }
-                focusTarget = filteredAchievements().firstOrNull()?.let { "a:${it.id}" }
+            is Screen.Game -> currentGame?.takeIf { it.tab == GameTab.Achievements }?.let { st ->
+                st.filter = AchFilter.entries[(st.filter.ordinal + 1) % AchFilter.entries.size]
+                viewModelScope.launch { st.listStates.getValue(GameTab.Achievements).scrollToItem(0) }
+                focusTarget = filteredAchievements(st).firstOrNull()?.let { "a:${it.id}" } ?: "filter"
             }
             else -> Unit
         }
@@ -570,8 +678,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun filteredAchievements() = (game as? Load.Ok)?.data?.achievements.orEmpty().filter {
-        when (achFilter) {
+    fun filteredAchievements(st: GameState? = currentGame) = (st?.detail as? Load.Ok)?.data?.achievements.orEmpty().filter {
+        when (st?.filter ?: AchFilter.All) {
             AchFilter.All -> true
             AchFilter.Locked -> !it.unlocked
             AchFilter.Unlocked -> it.unlocked
@@ -580,7 +688,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Recently played games, minus the ones hidden in Wasabi. */
-    fun visibleRecent(): List<RecentGame> = (recent as? Load.Ok)?.data.orEmpty().filter { it.id !in hiddenPlaying }
+    fun visibleRecent(): List<RecentGame> = (recent as? Load.Ok)?.data.orEmpty().filter { it.id !in hiddenPlaying.keys }
+
+    /** Unhides games played again since they were hidden. */
+    private fun reconcileHidden() {
+        val list = (recent as? Load.Ok)?.data ?: return
+        val m = hiddenPlaying.toMutableMap()
+        var changed = false
+        for (g in list) {
+            val hiddenAt = m[g.id] ?: continue
+            val played = g.lastPlayed.orEmpty()
+            when {
+                hiddenAt.isEmpty() -> { m[g.id] = played; changed = true }   // from older versions: start tracking
+                played > hiddenAt -> { m.remove(g.id); changed = true }       // played again: show it
+            }
+        }
+        if (changed) {
+            hiddenPlaying = m
+            prefs.hiddenPlaying = m
+        }
+    }
 
     /**
      * Hides a game from Playing (RetroAchievements has no way to remove a
@@ -592,7 +719,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val i = list.indexOfFirst { it.id == id }
         if (i < 0) return
         lastHidden = list[i]
-        hiddenPlaying = hiddenPlaying + id
+        hiddenPlaying = hiddenPlaying + (id to list[i].lastPlayed.orEmpty())
         prefs.hiddenPlaying = hiddenPlaying
         val next = list.getOrNull(i + 1) ?: list.getOrNull(i - 1)
         focusTarget = next?.let { "g:${it.id}" } ?: "undo"
@@ -608,7 +735,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Brings every hidden game back to Playing. */
     fun showHiddenPlaying() {
-        hiddenPlaying = emptySet()
+        hiddenPlaying = emptyMap()
         prefs.hiddenPlaying = hiddenPlaying
         lastHidden = null
     }
@@ -635,7 +762,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---- focus bookkeeping ----
 
     private fun focusScope() = when (val s = screen) {
-        is Screen.Game -> "game:${s.id}:${s.user}"
+        is Screen.Game -> "game:${s.key}:${gameState(s).tab}"
         is Screen.User -> "user:${s.name}"
         is Screen.ConsoleGames -> "console:${s.id}"
         else -> tab.name
@@ -659,10 +786,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun keysHere(): List<String> = when (val s = screen) {
         Screen.Home -> keysFor(tab)
-        // Want to Play first (focused when the game opens), then images, then achievements.
-        is Screen.Game -> listOf("want") +
-            (game as? Load.Ok)?.data?.images.orEmpty().indices.map { "img:$it" } +
-            filteredAchievements().map { "a:${it.id}" }
+        // Want to Play first (focused when the game opens), then the tab's content.
+        is Screen.Game -> {
+            val st = gameState(s)
+            val g = (st.detail as? Load.Ok)?.data
+            listOf("want") + when (st.tab) {
+                GameTab.Achievements -> listOf("filter") + filteredAchievements(st).map { "a:${it.id}" }
+                GameTab.Info -> g?.let { d -> d.images.indices.map { "img:$it" } + gameFacts(d).indices.map { "fact:$it" } }.orEmpty()
+                GameTab.Series -> (st.series as? Load.Ok)?.data.orEmpty().map { "ser:${it.id}" } +
+                    (st.extras as? Load.Ok)?.data?.hubs.orEmpty().map { "hub:${it.id}" }
+                GameTab.Similar -> (st.extras as? Load.Ok)?.data?.similar.orEmpty().map { "sim:${it.id}" }
+                GameTab.Compare -> (st.compare as? Load.Ok)?.data.orEmpty().map { "cmp:${it.user}" }
+            }
+        }
         is Screen.User -> (user as? Load.Ok)?.data?.let { v ->
             v.recentGames.map { "ug:${it.id}" } + v.unlocks.map { "uu:${it.achievementId}:${it.date}" }
         }.orEmpty()
@@ -671,10 +807,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Focus the row you last used on this screen, or its first row. */
-    private fun restoreFocusHere() {
+    /** Focus the row last used here, else the first row (skipping the top button when [preferContent]). */
+    private fun restoreFocusHere(preferContent: Boolean = false) {
         val keys = keysHere()
         val last = lastFocus[focusScope()]
-        focusTarget = if (last != null && last in keys) last else keys.firstOrNull()
+        focusTarget = when {
+            last != null && last in keys -> last
+            preferContent -> keys.firstOrNull { it != "want" } ?: keys.firstOrNull()
+            else -> keys.firstOrNull()
+        }
     }
 
     private fun restoreFocus(t: HomeTab) {
@@ -704,7 +845,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun loadTab(t: HomeTab) = when (t) {
-        HomeTab.Playing -> launchLoad("recent", { recent = it }, { restoreFocus(t) }) { recentGames() }
+        HomeTab.Playing -> launchLoad("recent", { recent = it }, { reconcileHidden(); restoreFocus(t) }) { recentGames() }
         HomeTab.ForYou -> launchLoad("suggested", { suggested = it }, { restoreFocus(t) }) { suggestions() }
         HomeTab.WantToPlay -> launchLoad("want", { wantToPlay = it }, { restoreFocus(t) }) { wantToPlay() }
         HomeTab.Library -> launchLoad("library", { library = it }, { restoreFocus(t) }) { library() }
@@ -718,7 +859,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun loadProfile() = launchLoad("profile", { profile = it }) { profile() }
 
-    private fun loadGame(s: Screen.Game) = launchLoad("game", { game = it }, { restoreFocusHere() }) {
+    private fun loadGame(s: Screen.Game) = launchLoad("game:${s.key}", { gameState(s).detail = it }, { if (screen == s) restoreFocusHere() }) {
         if (s.user != null) game(s.id, s.user) else game(s.id)
     }
 

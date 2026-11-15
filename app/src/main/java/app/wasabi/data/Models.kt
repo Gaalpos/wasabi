@@ -168,3 +168,37 @@ data class Suggestions(
 ) {
     val isEmpty get() = almostDone.isEmpty() && friendsPlaying.isEmpty() && fromWantToPlay.isEmpty()
 }
+
+/** A hub (series, genre, etc.) a game belongs to, from the website's game page. */
+data class HubRef(val id: Int, val title: String, val games: Int)
+
+/** A game in a hub or similar-games list. */
+data class RelatedGame(
+    val id: Int,
+    val title: String,
+    val iconUrl: String?,
+    val console: String?,
+    val achievements: Int,
+    val points: Int,
+    val released: String? = null,
+)
+
+/** Series, hubs and similar games for one game (website game page + API v2). */
+data class GameExtras(
+    val series: HubRef?,
+    val hubs: List<HubRef>,
+    val similar: List<RelatedGame>,
+)
+
+/** Someone's progress in one game, for Compare. */
+data class CompareEntry(
+    val user: String,
+    val avatarUrl: String?,
+    val earned: Int,
+    val earnedHc: Int,
+    val total: Int,
+    val isMe: Boolean = false,
+) {
+    val shown get() = maxOf(earned, earnedHc)
+    val fraction get() = if (total > 0) shown.toFloat() / total else 0f
+}

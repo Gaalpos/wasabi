@@ -59,3 +59,28 @@ suspend fun RaApi.userView(name: String): UserView = coroutineScope {
     val unlocks = async { runCatching { recentUnlocks(name) }.getOrDefault(emptyList()) }
     UserView(profile.await(), games.await(), unlocks.await())
 }
+
+/**
+ * Your progress in a game next to everyone you follow (up to 60 people),
+ * most progress first. Followed players who haven't started it are left out.
+ */
+suspend fun RaApi.compare(gameId: Int, total: Int): List<CompareEntry> = coroutineScope {
+    val gate = kotlinx.coroutines.sync.Semaphore(4)
+    val friends = runCatching { following() }.getOrDefault(emptyList()).take(60)
+    val me = async { runCatching { progressIn(user, gameId) }.getOrDefault(0 to 0) }
+    val others = friends.map { f ->
+        async {
+            gate.acquire()
+            try {
+                runCatching { progressIn(f.user, gameId) }.getOrNull()
+                    ?.takeIf { (soft, hard) -> soft > 0 || hard > 0 }
+                    ?.let { (soft, hard) -> CompareEntry(f.user, f.avatarUrl, soft, hard, total) }
+            } finally {
+                gate.release()
+            }
+        }
+    }.awaitAll().filterNotNull()
+    val (soft, hard) = me.await()
+    val mine = CompareEntry(user, "$MEDIA/UserPic/$user.png", soft, hard, total, isMe = true)
+    (others + mine).sortedWith(compareByDescending<CompareEntry> { it.shown }.thenByDescending { it.earnedHc })
+}
