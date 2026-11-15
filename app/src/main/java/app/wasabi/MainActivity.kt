@@ -27,6 +27,7 @@ import app.wasabi.ui.UpdateState
 import app.wasabi.ui.UserScreen
 import app.wasabi.ui.RaWebWorker
 import app.wasabi.ui.WebSignInScreen
+import app.wasabi.ui.ImageViewer
 
 class MainActivity : ComponentActivity() {
     private val vm: AppViewModel by viewModels()
@@ -109,6 +110,7 @@ private fun App(vm: AppViewModel) {
             is Screen.User -> UserScreen(vm, s)
             is Screen.ConsoleGames -> ConsoleScreen(vm, s)
             Screen.WebSignIn -> WebSignInScreen(vm)
+            is Screen.Images -> ImageViewer(vm, s)
         }
         // Hidden browser for Want to Play changes (only while one is running).
         RaWebWorker(vm)

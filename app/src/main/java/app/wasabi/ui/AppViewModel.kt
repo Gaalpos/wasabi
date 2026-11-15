@@ -44,6 +44,8 @@ sealed interface Screen {
     data class ConsoleGames(val id: Int, val name: String) : Screen
     /** One-time sign-in on retroachievements.org, for Want to Play. */
     data object WebSignIn : Screen
+    /** A game's images full screen, as (url, label), starting at [index]. */
+    data class Images(val images: List<Pair<String, String>>, val index: Int) : Screen
 }
 
 /** One add/remove request for the hidden website session. */
@@ -467,6 +469,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (wantToPlay == null) launchLoad("want", { wantToPlay = it }) { wantToPlay() }
     }
 
+    fun openImages(images: List<Pair<String, String>>, index: Int) {
+        if (images.isEmpty()) return
+        stack.add(Screen.Images(images, index.coerceIn(0, images.lastIndex)))
+    }
+
     fun openUser(name: String) {
         if (name.isBlank()) return
         if (isMe(name)) {
@@ -509,7 +516,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             is Screen.Game -> loadGame(s)
             is Screen.User -> loadUser(s.name)
             is Screen.ConsoleGames -> loadConsole(s.id)
-            Screen.WebSignIn, Screen.Login -> Unit
+            is Screen.Images, Screen.WebSignIn, Screen.Login -> Unit
         }
     }
 
@@ -611,12 +618,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun keysHere(): List<String> = when (val s = screen) {
         Screen.Home -> keysFor(tab)
-        is Screen.Game -> filteredAchievements().map { "a:${it.id}" }
+        // Want to Play first (focused when the game opens), then images, then achievements.
+        is Screen.Game -> listOf("want") +
+            (game as? Load.Ok)?.data?.images.orEmpty().indices.map { "img:$it" } +
+            filteredAchievements().map { "a:${it.id}" }
         is Screen.User -> (user as? Load.Ok)?.data?.let { v ->
             v.recentGames.map { "ug:${it.id}" } + v.unlocks.map { "uu:${it.achievementId}:${it.date}" }
         }.orEmpty()
         is Screen.ConsoleGames -> filteredConsoleGames().map { "cg:${it.id}" }
-        Screen.WebSignIn, Screen.Login -> emptyList()
+        is Screen.Images, Screen.WebSignIn, Screen.Login -> emptyList()
     }
 
     /** Focus the row you last used on this screen, or its first row. */

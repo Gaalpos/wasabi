@@ -11,6 +11,17 @@ import coil3.compose.AsyncImage
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.List
@@ -118,26 +129,15 @@ private fun GameHeader(vm: AppViewModel, g: GameDetail, stacked: Boolean) {
             AwardTag(g.award)
         }
         (vm.screen as? Screen.Game)?.user?.let { Tag("$it's progress", Palette.Soft) }
-        GameMedia(g)
-        StatChips(g)
-        GameFacts(g)
-        if (g.total > 0) {
-            ProgressLine(g.fraction, g.isHardcore)
-            Text(
-                "${g.shown} of ${g.total} unlocked · ${num(g.pointsEarned)}/${num(g.points)} pts" +
-                    if (g.earnedHc in 1 until g.earned) " · ${g.earnedHc} hardcore" else "",
-                color = Palette.Dim, fontSize = 12.sp,
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
-            if (g.total > 0) Pill("Show: ${vm.achFilter.label}", onClick = { vm.option() }, icon = Icons.AutoMirrored.Rounded.List)
-        }
-        // Adds or removes the game through the website session, in the
-        // background (signing in once first if needed). See RaWeb.
+        // Actions first, so Want to Play is on screen (and focused) as soon as
+        // the game opens. It adds or removes the game through the website
+        // session in the background, signing in once first if needed (RaWeb).
         val wanted = vm.isWanted(g.id)
         val busy = vm.wantBusy == g.id
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             Pill(
                 when {
                     busy -> if (wanted == true) "Removing…" else "Adding…"
@@ -151,9 +151,23 @@ private fun GameHeader(vm: AppViewModel, g: GameDetail, stacked: Boolean) {
                 },
                 selected = wanted == true && !busy,
                 onClick = { vm.toggleWantToPlay(g.id) },
+                focusKey = "want", vm = vm,
             )
-            vm.wantError?.let { Text(it, color = Palette.Error, fontSize = 11.sp, modifier = Modifier.weight(1f)) }
+            Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
+            if (g.total > 0) Pill("Show: ${vm.achFilter.label}", onClick = { vm.option() }, icon = Icons.AutoMirrored.Rounded.List)
         }
+        vm.wantError?.let { Text(it, color = Palette.Error, fontSize = 11.sp) }
+        if (g.total > 0) {
+            ProgressLine(g.fraction, g.isHardcore)
+            Text(
+                "${g.shown} of ${g.total} unlocked · ${num(g.pointsEarned)}/${num(g.points)} pts" +
+                    if (g.earnedHc in 1 until g.earned) " · ${g.earnedHc} hardcore" else "",
+                color = Palette.Dim, fontSize = 12.sp,
+            )
+        }
+        GameMedia(vm, g)
+        StatChips(g)
+        GameFacts(g)
     }
 }
 
@@ -226,27 +240,53 @@ private fun UnlockRateBar(all: Float, hardcore: Float) {
     }
 }
 
-/** Title screen, in-game screenshot and box art, scrolling sideways. */
+/**
+ * Title screen, in-game screenshot and box art, scrolling sideways. Each is
+ * reachable with the D-pad; A (or a tap) opens it full screen.
+ */
 @Composable
-private fun GameMedia(g: GameDetail) {
-    val shots = listOfNotNull(g.titleImageUrl, g.ingameImageUrl)
-    if (shots.isEmpty() && g.boxArtUrl == null) return
+private fun GameMedia(vm: AppViewModel, g: GameDetail) {
+    val images = g.images
+    if (images.isEmpty()) return
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        shots.forEach { MediaImage(it, width = 112.dp) }
-        g.boxArtUrl?.let { MediaImage(it, width = 84.dp) }
+        images.forEachIndexed { i, (url, label) ->
+            MediaImage(vm, "img:$i", url, label, width = if (label == "Box art") 84.dp else 112.dp) {
+                vm.openImages(images, i)
+            }
+        }
     }
 }
 
 @Composable
-private fun MediaImage(url: String, width: Dp) {
+private fun MediaImage(vm: AppViewModel, key: String, url: String, label: String, width: Dp, onOpen: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val requester = remember { FocusRequester() }
+    if (vm.focusTarget == key) {
+        LaunchedEffect(key) {
+            runCatching { requester.requestFocus() }
+            vm.consumeFocus(key)
+        }
+    }
+    val shape = RoundedCornerShape(8.dp)
     AsyncImage(
         model = url,
-        contentDescription = null,
+        contentDescription = label,
         contentScale = ContentScale.Fit,
-        modifier = Modifier.width(width).height(84.dp).clip(RoundedCornerShape(8.dp)).background(Palette.Surface),
+        modifier = Modifier
+            .width(width)
+            .height(84.dp)
+            .focusRequester(requester)
+            .onFocusChanged {
+                focused = it.isFocused
+                if (it.isFocused) vm.rememberFocus(key)
+            }
+            .clip(shape)
+            .background(Palette.Surface)
+            .border(2.dp, if (focused) Palette.Accent else Color.Transparent, shape)
+            .clickable(onClick = onOpen),
     )
 }
 

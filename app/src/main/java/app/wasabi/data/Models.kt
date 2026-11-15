@@ -117,6 +117,14 @@ data class GameDetail(
     val retroPoints get() = achievements.sumOf { it.trueRatio }
     val missableCount get() = achievements.count { it.missable }
     val authors get() = achievements.mapNotNull { it.author }.distinct()
+
+    /** Available images as (url, label), in display order. */
+    val images: List<Pair<String, String>>
+        get() = listOfNotNull(
+            titleImageUrl?.let { it to "Title screen" },
+            ingameImageUrl?.let { it to "In game" },
+            boxArtUrl?.let { it to "Box art" },
+        )
     override val total get() = achievements.size
     override val earned get() = achievements.count { it.unlocked }
     override val earnedHc get() = achievements.count { it.hardcore }
