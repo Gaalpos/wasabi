@@ -1,5 +1,14 @@
 package app.wasabi.ui
 
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Build
 import app.wasabi.data.Console
@@ -339,13 +348,13 @@ fun ConsoleScreen(vm: AppViewModel, screen: Screen.ConsoleGames) {
                 focusKey = "csort", vm = vm,
             )
         }
-        OutlinedTextField(
+        SearchField(
             value = vm.consoleQuery,
             onValueChange = { vm.consoleQuery = it },
-            placeholder = { Text("Search games") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) }),
+            placeholder = "Search games",
+            vm = vm,
+            listState = vm.consoleListState,
+            firstKey = { vm.filteredConsoleGames().firstOrNull()?.let { "cg:${it.id}" } },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
         )
         Column(Modifier.weight(1f)) {
@@ -385,13 +394,13 @@ private fun ConsoleGameRow(vm: AppViewModel, g: ConsoleGame) {
 fun SearchTab(vm: AppViewModel) {
     val focus = LocalFocusManager.current
     Column(Modifier.fillMaxSize()) {
-        OutlinedTextField(
+        SearchField(
             value = vm.searchQuery,
             onValueChange = { vm.searchQuery = it },
-            placeholder = { Text("Search all games") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) }),
+            placeholder = "Search all games",
+            vm = vm,
+            listState = vm.listState(HomeTab.Search),
+            firstKey = { vm.searchResults().firstOrNull()?.let { "sg:${it.id}" } },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
         )
         Column(Modifier.weight(1f)) {
@@ -472,13 +481,13 @@ fun GameListScreen(vm: AppViewModel, screen: Screen.GameList) {
                 focusKey = "lsort", vm = vm,
             )
         }
-        OutlinedTextField(
+        SearchField(
             value = vm.listQuery,
             onValueChange = { vm.listQuery = it },
-            placeholder = { Text("Search this list") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Down) }),
+            placeholder = "Search this list",
+            vm = vm,
+            listState = vm.gameListState,
+            firstKey = { vm.filteredGameList().firstOrNull()?.let { "gl:${it.id}" } },
             modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
         )
         Column(Modifier.weight(1f)) {
@@ -497,4 +506,52 @@ fun GameListScreen(vm: AppViewModel, screen: Screen.GameList) {
         }
         HintBar("A" to "Open", "X" to "Want to Play", "Y" to "Sort", "B" to "Back", REFRESH to "Refresh")
     }
+}
+
+/**
+ * A search box the D-pad can leave: down (or the keyboard's Search key)
+ * closes the keyboard and selects the first game below. Left/right still
+ * move the cursor; up from the first game comes back here.
+ */
+@Composable
+fun SearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    vm: AppViewModel,
+    listState: LazyGridState,
+    firstKey: () -> String?,
+    modifier: Modifier = Modifier,
+) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focus = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
+    fun leave() {
+        keyboard?.hide()
+        val key = firstKey()
+        if (key == null) {
+            focus.moveFocus(androidx.compose.ui.focus.FocusDirection.Down)
+            return
+        }
+        scope.launch {
+            listState.scrollToItem(0)   // so the first game is on screen to take focus
+            vm.focusTarget = key
+        }
+    }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = { Text(placeholder) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { leave() }),
+        modifier = modifier.onPreviewKeyEvent { e ->
+            if (e.type == KeyEventType.KeyDown && e.key == Key.DirectionDown) {
+                leave()
+                true
+            } else {
+                false
+            }
+        },
+    )
 }
