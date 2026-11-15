@@ -41,20 +41,47 @@ class MainActivity : ComponentActivity() {
         vm.onResume()
     }
 
+    // Last handled shoulder press, to drop the duplicate some handhelds send
+    // when the built-in controller shows up as two input devices.
+    private var lastShoulderKey = 0
+    private var lastShoulderTime = 0L
+
     /**
-     * Shoulder and face buttons the UI doesn't consume itself. A (confirm)
-     * and B (back) are handled by Android's default gamepad mapping.
+     * LB/RB (and LT/RT) switch tabs. They're handled here, before any view
+     * sees them, so a focused text field or web page can't swallow them.
+     * Only the first press counts: held-button repeats and near-instant
+     * duplicates are ignored, and the release is swallowed too.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val delta = when (event.keyCode) {
+            KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_L2 -> -1
+            KeyEvent.KEYCODE_BUTTON_R1, KeyEvent.KEYCODE_BUTTON_R2 -> 1
+            else -> 0
+        }
+        if (delta == 0 || vm.screen == Screen.Login) return super.dispatchKeyEvent(event)
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            val duplicate = event.keyCode == lastShoulderKey && event.eventTime - lastShoulderTime < 150
+            lastShoulderKey = event.keyCode
+            lastShoulderTime = event.eventTime
+            if (!duplicate) vm.cycleTab(delta)
+        }
+        return true
+    }
+
+    /**
+     * Face buttons the UI doesn't consume itself. A (confirm) and B (back)
+     * are handled by Android's default gamepad mapping.
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (vm.screen == Screen.Login) return super.onKeyDown(keyCode, event)
-        when (keyCode) {
-            KeyEvent.KEYCODE_BUTTON_L1 -> vm.cycleTab(-1)
-            KeyEvent.KEYCODE_BUTTON_R1 -> vm.cycleTab(1)
-            KeyEvent.KEYCODE_BUTTON_Y -> vm.option()
-            KeyEvent.KEYCODE_BUTTON_X -> vm.refresh()
-            KeyEvent.KEYCODE_BUTTON_START -> vm.openSettings()
-            else -> return super.onKeyDown(keyCode, event)
+        val action: (() -> Unit)? = when (keyCode) {
+            KeyEvent.KEYCODE_BUTTON_Y -> vm::option
+            KeyEvent.KEYCODE_BUTTON_X -> vm::refresh
+            KeyEvent.KEYCODE_BUTTON_START -> vm::openSettings
+            else -> null
         }
+        if (action == null) return super.onKeyDown(keyCode, event)
+        if (event.repeatCount == 0) action()   // holding the button doesn't repeat it
         return true
     }
 }
