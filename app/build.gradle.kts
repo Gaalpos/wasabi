@@ -13,8 +13,8 @@ android {
         applicationId = "app.wasabi"
         minSdk = 26          // Retroid Pocket Classic ships Android 14 (API 34)
         targetSdk = 36
-        versionCode = 12
-        versionName = "1.11"
+        versionCode = 13
+        versionName = "1.12"
     }
 
     buildTypes {
