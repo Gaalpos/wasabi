@@ -311,7 +311,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             status in 200..299 -> applyWantChange(job)
             status == 401 || status == 419 -> {
                 // The website session ended: sign in again, then retry.
-                setWebSignedIn(false)
+                saveWebSignedIn(false)
                 afterSignIn = job.copy(nonce = System.nanoTime().toString())
                 if (screen != Screen.WebSignIn) stack.add(Screen.WebSignIn)
             }
@@ -337,7 +337,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The sign-in page reached a signed-in page. */
     fun onWebSignedIn() {
-        setWebSignedIn(true)
+        saveWebSignedIn(true)
         if (screen == Screen.WebSignIn) {
             stack.removeAt(stack.lastIndex)
             restoreFocusHere()
@@ -352,10 +352,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun webSignOut() {
         RaWeb.signOut()
-        setWebSignedIn(false)
+        saveWebSignedIn(false)
     }
 
-    private fun setWebSignedIn(v: Boolean) {
+    private fun saveWebSignedIn(v: Boolean) {
         webSignedIn = v
         prefs.webSignedIn = v
     }
