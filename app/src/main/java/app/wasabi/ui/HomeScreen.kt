@@ -1,5 +1,6 @@
 package app.wasabi.ui
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
@@ -75,8 +76,13 @@ fun HomeScreen(vm: AppViewModel) {
             ProfileBar(vm.profile)
             Tabs(vm, Modifier.fillMaxWidth().padding(horizontal = 10.dp))
             UpdateBanner(vm)
-            Box(Modifier.weight(1f).padding(top = 4.dp)) {
-                when (vm.tab) {
+            AnimatedContent(
+                targetState = vm.tab,
+                transitionSpec = { tabTransition(vm.tabDirection) },
+                label = "home tabs",
+                modifier = Modifier.weight(1f).padding(top = 4.dp).swipeToSwitchTabs { vm.cycleTab(it) },
+            ) { t ->
+                when (t) {
                     HomeTab.Playing -> PlayingTab(vm)
                     HomeTab.ForYou -> ForYouTab(vm)
                     HomeTab.WantToPlay -> WantToPlayTab(vm)

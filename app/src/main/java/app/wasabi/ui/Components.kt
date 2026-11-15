@@ -1,5 +1,18 @@
 package app.wasabi.ui
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.ContentTransform
+import kotlin.math.abs
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.composed
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
@@ -524,3 +537,30 @@ fun SignOutDialog(vm: AppViewModel) {
         },
     )
 }
+
+/**
+ * Horizontal swipe to switch tabs: swipe left for the next tab, right for
+ * the previous one (like R1 / L1). Things inside that scroll sideways (the
+ * tab strip, image rows) get the drag first, so they keep scrolling.
+ */
+fun Modifier.swipeToSwitchTabs(onSwitch: (delta: Int) -> Unit): Modifier = composed {
+    val current = rememberUpdatedState(onSwitch)
+    val threshold = with(LocalDensity.current) { 72.dp.toPx() }
+    pointerInput(Unit) {
+        var total = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { total = 0f },
+            onDragEnd = { if (abs(total) > threshold) current.value(if (total < 0) 1 else -1) },
+            onDragCancel = { total = 0f },
+            onHorizontalDrag = { change, dx ->
+                total += dx
+                change.consume()
+            },
+        )
+    }
+}
+
+/** Short slide in the direction of travel (+1 next tab, -1 previous), with a fade. */
+fun tabTransition(direction: Int): ContentTransform =
+    (slideInHorizontally(tween(200)) { w -> direction * w / 6 } + fadeIn(tween(200))) togetherWith
+        (slideOutHorizontally(tween(150)) { w -> -direction * w / 6 } + fadeOut(tween(150)))

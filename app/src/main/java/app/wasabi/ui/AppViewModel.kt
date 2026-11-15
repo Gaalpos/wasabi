@@ -371,6 +371,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val all = GameTab.entries
             val st = gameState(s)
             selectGameTab(all[(st.tab.ordinal + delta + all.size) % all.size])
+            tabDirection = if (delta >= 0) 1 else -1
             return
         }
         if (s != Screen.Home) return
@@ -386,6 +387,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val s = screen as? Screen.Game ?: return
         val st = gameState(s)
         if (st.tab == t) return
+        tabDirection = if (t.ordinal >= st.tab.ordinal) 1 else -1
         st.tab = t
         when (t) {
             GameTab.Series -> if (st.extras !is Load.Ok) loadExtras(s)

@@ -46,6 +46,7 @@ Wasabi green means hardcore and silver means softcore.
 | X | Add the game to Want to Play, or remove it (on a game, or the selected game in any list; game rows also have a +/✓ button) |
 | Y | Sort the library or a system's games, filter achievements, favorite a system (in Browse), or remove a game from Playing |
 | L1 / R1 | Previous / next tab (on a game: its tabs) |
+| Swipe left / right | Next / previous tab, on the touchscreen |
 | R2 | Refresh. Pick L2 or Select instead in **Settings → Refresh button** |
 | Start | Settings |
 

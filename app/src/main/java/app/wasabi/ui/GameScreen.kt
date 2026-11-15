@@ -1,5 +1,6 @@
 package app.wasabi.ui
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
@@ -72,8 +73,13 @@ fun GameScreen(vm: AppViewModel, screen: Screen.Game) {
             is Load.Ok -> {
                 GameHeader(vm, screen, s.data)
                 GameTabStrip(vm, st)
-                Box(Modifier.weight(1f).padding(top = 2.dp)) {
-                    when (st.tab) {
+                AnimatedContent(
+                    targetState = st.tab,
+                    transitionSpec = { tabTransition(vm.tabDirection) },
+                    label = "game tabs",
+                    modifier = Modifier.weight(1f).padding(top = 2.dp).swipeToSwitchTabs { vm.cycleTab(it) },
+                ) { t ->
+                    when (t) {
                         GameTab.Achievements -> AchievementsTab(vm, st, s.data)
                         GameTab.Info -> InfoTab(vm, st, s.data)
                         GameTab.Series -> SeriesTab(vm, st, screen)
