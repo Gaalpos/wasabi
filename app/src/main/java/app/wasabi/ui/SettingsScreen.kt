@@ -34,7 +34,7 @@ fun SettingsTab(vm: AppViewModel) {
         fullWidthItem("upd") { UpdateSettingsRow(vm) }
         fullWidthItem("h:web") { Heading("RetroAchievements website", "Only used to add and remove Want to Play games") }
         fullWidthItem("web") {
-            FocusRow("web", vm, onClick = { if (vm.webSignedIn) vm.webSignOut() else vm.openWebSignIn() }) {
+            FocusRow("web", vm, onClick = { if (vm.webSignedIn) vm.askSignOut(SignOutKind.Website) else vm.openWebSignIn() }) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         if (vm.webSignedIn) "Signed in" else "Not signed in",

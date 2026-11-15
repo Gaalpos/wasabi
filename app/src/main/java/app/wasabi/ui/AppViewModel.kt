@@ -138,6 +138,9 @@ enum class ListSort(val label: String) {
     System("System"),
 }
 
+/** Which sign-out is waiting for confirmation. */
+enum class SignOutKind { App, Website }
+
 enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked("Unlocked"), Missable("Missable") }
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -209,6 +212,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var wantBusy by mutableStateOf<Int?>(null); private set
     var wantError by mutableStateOf<String?>(null); private set
     private var afterSignIn: WebJob? = null
+
+    /** A sign-out waiting for confirmation in the popup, if any. */
+    var confirmSignOut by mutableStateOf<SignOutKind?>(null); private set
+
+    fun askSignOut(kind: SignOutKind) {
+        confirmSignOut = kind
+    }
+
+    fun cancelSignOut() {
+        confirmSignOut = null
+    }
+
+    /** The popup's Sign out button. */
+    fun confirmSignOutNow() {
+        val kind = confirmSignOut ?: return
+        confirmSignOut = null
+        when (kind) {
+            SignOutKind.App -> signOut()
+            SignOutKind.Website -> webSignOut()
+        }
+    }
 
     /** Set when the RA site was opened to edit Want to Play; refresh on return. */
     private var wantToPlayEdited = false

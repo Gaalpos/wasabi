@@ -1,5 +1,9 @@
 package app.wasabi.ui
 
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Add
@@ -478,5 +482,45 @@ fun WantToggle(vm: AppViewModel, gameId: Int) {
             .clickable { vm.toggleWantToPlay(gameId) }
             .background(if (wanted) Palette.Accent.copy(alpha = 0.15f) else Palette.SurfaceHi)
             .padding(4.dp),
+    )
+}
+
+/**
+ * Asks before signing out. Cancel is focused first so a stray A press is
+ * harmless; B (or tapping outside) also cancels.
+ */
+@Composable
+fun SignOutDialog(vm: AppViewModel) {
+    val kind = vm.confirmSignOut ?: return
+    val cancelFocus = remember { FocusRequester() }
+    LaunchedEffect(kind) { runCatching { cancelFocus.requestFocus() } }
+    AlertDialog(
+        onDismissRequest = { vm.cancelSignOut() },
+        containerColor = Palette.Surface,
+        titleContentColor = Palette.Text,
+        textContentColor = Palette.Dim,
+        title = {
+            Text(if (kind == SignOutKind.App) "Sign out of Wasabi?" else "Sign out of retroachievements.org?")
+        },
+        text = {
+            Text(
+                if (kind == SignOutKind.App) {
+                    "You'll need your username and Web API key to sign in again. Your settings, favorites and hidden games stay on this device."
+                } else {
+                    "Wasabi will ask you to sign in to the website again the next time you add a game to Want to Play."
+                }
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { vm.confirmSignOutNow() },
+                colors = ButtonDefaults.buttonColors(containerColor = Palette.Error, contentColor = Color.Black),
+            ) { Text("Sign out", fontWeight = FontWeight.SemiBold) }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = { vm.cancelSignOut() }, modifier = Modifier.focusRequester(cancelFocus)) {
+                Text("Cancel", color = Palette.Text)
+            }
+        },
     )
 }

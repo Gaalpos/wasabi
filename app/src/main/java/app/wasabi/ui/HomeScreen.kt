@@ -472,7 +472,7 @@ private fun ProfileTab(vm: AppViewModel, wide: Boolean) {
                     Spacer(Modifier.height(4.dp))
                     Stats(p)
                     Spacer(Modifier.height(8.dp))
-                    Pill("Sign out", onClick = { vm.signOut() }, focusKey = "signout", vm = vm, icon = Icons.AutoMirrored.Rounded.ExitToApp)
+                    Pill("Sign out", onClick = { vm.askSignOut(SignOutKind.App) }, focusKey = "signout", vm = vm, icon = Icons.AutoMirrored.Rounded.ExitToApp)
                 }
             }
         }
@@ -486,7 +486,7 @@ private fun Identity(vm: AppViewModel, p: Profile, showSignOut: Boolean = true) 
     p.motto?.let { Text("“$it”", color = Palette.Dim, fontSize = 13.sp, textAlign = TextAlign.Center) }
     if (showSignOut) {
         Spacer(Modifier.height(4.dp))
-        Pill("Sign out", onClick = { vm.signOut() }, focusKey = "signout", vm = vm, icon = Icons.AutoMirrored.Rounded.ExitToApp)
+        Pill("Sign out", onClick = { vm.askSignOut(SignOutKind.App) }, focusKey = "signout", vm = vm, icon = Icons.AutoMirrored.Rounded.ExitToApp)
     }
 }
 
