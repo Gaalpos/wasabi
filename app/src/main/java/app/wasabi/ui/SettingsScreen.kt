@@ -98,6 +98,17 @@ fun SettingsTab(vm: AppViewModel) {
                 }
             }
         }
+        fullWidthItem("h:browselists") { Heading("Browse lists", "Choose which community lists appear in Browse") }
+        items(CommunityKind.entries, key = { "bl:${it.name}" }) { kind ->
+            val on = kind.name !in vm.hiddenBrowseLists
+            FocusRow("bl:${kind.name}", vm, onClick = { vm.toggleBrowseList(kind) }) {
+                Column(Modifier.weight(1f)) {
+                    Text(kind.title, color = if (on) Palette.Text else Palette.Dim, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(kind.subtitle, color = Palette.Dim, fontSize = 11.sp)
+                }
+                Switch(on, dimmed = false)
+            }
+        }
         fullWidthItem("h:refresh") { Heading("Refresh button", "The button that reloads what you're looking at") }
         items(RefreshButton.entries, key = { "rb:${it.name}" }) { b ->
             val on = Controls.refresh == b

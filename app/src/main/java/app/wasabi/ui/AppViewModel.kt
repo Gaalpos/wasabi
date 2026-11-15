@@ -239,6 +239,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var feed by mutableStateOf<Load<List<FeedItem>>?>(null); private set
     val feedListState = LazyGridState()
 
+    /** Browse lists (Coming soon, Recent masteries) shown in Browse; toggled in Settings. */
+    var hiddenBrowseLists by mutableStateOf(prefs.hiddenBrowseLists); private set
+    val visibleCommunity: List<CommunityKind> get() = CommunityKind.entries.filter { it.name !in hiddenBrowseLists }
+
+    fun toggleBrowseList(kind: CommunityKind) {
+        hiddenBrowseLists = if (kind.name in hiddenBrowseLists) hiddenBrowseLists - kind.name else hiddenBrowseLists + kind.name
+        prefs.hiddenBrowseLists = hiddenBrowseLists
+    }
+
     /** Favorite systems, listed first in Browse. */
     var favoriteConsoles by mutableStateOf(prefs.favoriteConsoles); private set
 
@@ -1216,9 +1225,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Following -> listOf("fmode") + (if (followMode == FollowMode.Following) following else followers)
             .let { (it as? Load.Ok)?.data.orEmpty().map { u -> "f:${u.user}" } }
         HomeTab.Browse -> if (searchQuery.isNotBlank()) searchResults().map { "sg:${it.id}" }
-            else listOf("list:MostPlayed", "list:Hacks") + sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
+            else listOf("list:MostPlayed", "list:Hacks") + visibleCommunity.map { "community:${it.name}" } + sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
         HomeTab.Profile -> listOf("p:awards", "p:stats", "signout")
-        HomeTab.Settings -> listOf("upd", "web", "notif") + controlsHelp().indices.map { "ctl:$it" } + RefreshButton.entries.map { "rb:${it.name}" } + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
+        HomeTab.Settings -> listOf("upd", "web", "notif") + CommunityKind.entries.map { "bl:${it.name}" } + controlsHelp().indices.map { "ctl:$it" } + RefreshButton.entries.map { "rb:${it.name}" } + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
             HomeTab.entries.filter { it != HomeTab.Settings }.map { "tab:${it.name}" }
     }
 

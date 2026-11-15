@@ -608,6 +608,11 @@ class Prefs(context: Context) {
     fun saveWidget(user: String?, points: Int, line: String?) =
         sp.edit().putString("widgetUser", user).putInt("widgetPoints", points).putString("widgetLine", line).apply()
 
+    /** Browse lists turned off in Settings (CommunityKind names). */
+    var hiddenBrowseLists: Set<String>
+        get() = sp.getStringSet("hiddenBrowseLists", emptySet()).orEmpty()
+        set(v) = sp.edit().putStringSet("hiddenBrowseLists", v).apply()
+
     /** Name of the button that refreshes (see RefreshButton). */
     var refreshButton: String?
         get() = sp.getString("refreshButton", null)

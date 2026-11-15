@@ -335,7 +335,7 @@ private fun BrowseList(vm: AppViewModel) {
                         }
                     }
                 }
-                items(CommunityKind.entries, key = { "community:${it.name}" }) { kind ->
+                items(vm.visibleCommunity, key = { "community:${it.name}" }) { kind ->
                     FocusRow("community:${kind.name}", vm, onClick = { vm.openCommunity(kind) }) {
                         Icon(
                             if (kind == CommunityKind.ComingSoon) Icons.Rounded.Build else Icons.Rounded.CheckCircle,
