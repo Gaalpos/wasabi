@@ -1,5 +1,7 @@
 package app.wasabi.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import android.annotation.SuppressLint
 import android.webkit.CookieManager
 import android.webkit.WebResourceError
@@ -40,7 +42,7 @@ fun WebSignInScreen(vm: AppViewModel) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Pill("‹ Back", onClick = { vm.back() })
+            Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
             Column(Modifier.weight(1f)) {
                 Text("Sign in to RetroAchievements", color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 Text(

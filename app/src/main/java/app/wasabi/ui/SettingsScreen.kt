@@ -1,5 +1,7 @@
 package app.wasabi.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +34,7 @@ fun SettingsScreen(vm: AppViewModel) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Pill("‹ Back", onClick = { vm.back() })
+            Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
             Text("Settings", color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
         }
         Box(Modifier.weight(1f)) {

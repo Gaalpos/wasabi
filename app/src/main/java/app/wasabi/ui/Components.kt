@@ -17,8 +17,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -36,6 +40,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -149,6 +154,7 @@ fun Pill(
     focusKey: String? = null,
     vm: AppViewModel? = null,
     compact: Boolean = false,
+    icon: ImageVector? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val requester = remember { FocusRequester() }
@@ -178,13 +184,42 @@ fun Pill(
             .clickable(onClick = onClick)
             .padding(horizontal = if (compact) 10.dp else 12.dp, vertical = if (compact) 5.dp else 6.dp),
     ) {
-        Text(
-            text,
-            color = if (selected) Color.Black else Palette.Text,
-            fontSize = if (compact) 12.sp else 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-        )
+        val tint = if (selected) Color.Black else Palette.Text
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) {
+                Icon(icon, contentDescription = text.ifEmpty { null }, tint = tint, modifier = Modifier.size(if (compact) 15.dp else 16.dp))
+                if (text.isNotEmpty()) Spacer(Modifier.width(5.dp))
+            }
+            if (text.isNotEmpty()) {
+                Text(
+                    text,
+                    color = tint,
+                    fontSize = if (compact) 12.sp else 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * A controller button drawn like the hardware: round badges for the face
+ * buttons (A, B, X, Y), rounded pills for shoulders and Start/Select.
+ */
+@Composable
+fun ButtonBadge(key: String, color: Color = Palette.Dim) {
+    val round = key.length == 1
+    val shape = if (round) CircleShape else RoundedCornerShape(50)
+    Box(
+        Modifier
+            .then(if (round) Modifier.size(17.dp) else Modifier.height(17.dp))
+            .clip(shape)
+            .border(1.5.dp, color, shape)
+            .padding(horizontal = if (round) 0.dp else 6.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(key, color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
@@ -264,7 +299,7 @@ fun ErrorView(message: String, vm: AppViewModel, onRetry: () -> Unit) {
     ) {
         Text(message, color = Palette.Error, textAlign = TextAlign.Center, fontSize = 14.sp)
         Spacer(Modifier.height(12.dp))
-        Pill("Retry", onRetry, focusKey = "retry", vm = vm)
+        Pill("Retry", onRetry, focusKey = "retry", vm = vm, icon = Icons.Rounded.Refresh)
     }
     LaunchedEffect(message) { vm.focusTarget = "retry" }
 }
@@ -288,18 +323,10 @@ fun HintBar(vararg hints: Pair<String, String>) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         hints.forEach { (key, label) ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    key,
-                    color = Color.Black,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Palette.Dim)
-                        .padding(horizontal = 4.dp),
-                )
-                Spacer(Modifier.width(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                // "L1/R1" shows as two badges.
+                key.split('/').forEach { ButtonBadge(it) }
+                Spacer(Modifier.width(2.dp))
                 Text(label, color = Palette.Dim, fontSize = 11.sp, maxLines = 1)
             }
         }

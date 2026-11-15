@@ -1,5 +1,13 @@
 package app.wasabi.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ExitToApp
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -112,7 +120,7 @@ private fun Tabs(vm: AppViewModel, modifier: Modifier = Modifier) {
                         modifier = Modifier.bringIntoViewRequester(requester),
                     )
                 }
-                Pill("Settings", onClick = { vm.openSettings() }, compact = true)
+                Pill("Settings", onClick = { vm.openSettings() }, compact = true, icon = Icons.Rounded.Settings)
             }
             Row(Modifier.matchParentSize()) {
                 if (scroll.canScrollBackward) EdgeFade(left = true)
@@ -133,23 +141,17 @@ private fun EdgeFade(left: Boolean) {
             .background(Brush.horizontalGradient(if (left) colors else colors.reversed())),
         contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd,
     ) {
-        Text(if (left) "‹" else "›", color = Palette.Accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Icon(
+            if (left) Icons.AutoMirrored.Rounded.KeyboardArrowLeft else Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            contentDescription = if (left) "More tabs to the left" else "More tabs to the right",
+            tint = Palette.Accent,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
 @Composable
-private fun KeyCap(label: String) {
-    Text(
-        label,
-        color = Palette.Dim,
-        fontSize = 10.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier
-            .clip(RoundedCornerShape(5.dp))
-            .background(Palette.Surface)
-            .padding(horizontal = 5.dp, vertical = 3.dp),
-    )
-}
+private fun KeyCap(label: String) = ButtonBadge(label)
 
 @Composable
 private fun ProfileBar(state: Load<Profile>, modifier: Modifier = Modifier) {
@@ -267,7 +269,7 @@ private fun LibraryTab(vm: AppViewModel) {
             if (games.isEmpty()) EmptyView("Unlock an achievement and your games show up here.") else CardGrid(vm.listState(HomeTab.Library)) {
                 fullWidthItem("sort") {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Pill("Sort: ${vm.librarySort.label}", onClick = { vm.option() })
+                        Pill("Sort: ${vm.librarySort.label}", onClick = { vm.option() }, icon = Icons.AutoMirrored.Rounded.List)
                         Spacer(Modifier.weight(1f))
                         val mastered = games.count { it.award == "mastered" }
                         Text(
@@ -396,7 +398,7 @@ private fun ProfileTab(vm: AppViewModel, wide: Boolean) {
                     Spacer(Modifier.height(4.dp))
                     Stats(p)
                     Spacer(Modifier.height(8.dp))
-                    Pill("Sign out", onClick = { vm.signOut() }, focusKey = "signout", vm = vm)
+                    Pill("Sign out", onClick = { vm.signOut() }, focusKey = "signout", vm = vm, icon = Icons.AutoMirrored.Rounded.ExitToApp)
                 }
             }
         }
@@ -410,7 +412,7 @@ private fun Identity(vm: AppViewModel, p: Profile, showSignOut: Boolean = true) 
     p.motto?.let { Text("“$it”", color = Palette.Dim, fontSize = 13.sp, textAlign = TextAlign.Center) }
     if (showSignOut) {
         Spacer(Modifier.height(4.dp))
-        Pill("Sign out", onClick = { vm.signOut() }, focusKey = "signout", vm = vm)
+        Pill("Sign out", onClick = { vm.signOut() }, focusKey = "signout", vm = vm, icon = Icons.AutoMirrored.Rounded.ExitToApp)
     }
 }
 

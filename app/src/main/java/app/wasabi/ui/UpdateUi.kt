@@ -1,5 +1,8 @@
 package app.wasabi.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -46,8 +49,8 @@ fun UpdateBanner(vm: AppViewModel) {
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
         )
         when (u) {
-            is UpdateState.Available -> Pill("Update", onClick = { vm.startUpdate() }, selected = true, compact = true)
-            is UpdateState.Ready -> Pill("Install", onClick = { vm.startUpdate() }, selected = true, compact = true)
+            is UpdateState.Available -> Pill("Update", onClick = { vm.startUpdate() }, selected = true, compact = true, icon = Icons.Rounded.KeyboardArrowDown)
+            is UpdateState.Ready -> Pill("Install", onClick = { vm.startUpdate() }, selected = true, compact = true, icon = Icons.Rounded.CheckCircle)
             else -> Unit
         }
         if (u !is UpdateState.Downloading) Pill("Later", onClick = { vm.dismissUpdate() }, compact = true)

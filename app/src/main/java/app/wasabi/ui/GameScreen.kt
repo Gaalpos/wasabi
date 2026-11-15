@@ -1,5 +1,11 @@
 package app.wasabi.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -104,8 +110,8 @@ private fun GameHeader(vm: AppViewModel, g: GameDetail, stacked: Boolean) {
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Pill("‹ Back", onClick = { vm.back() })
-            if (g.total > 0) Pill("Show: ${vm.achFilter.label}", onClick = { vm.option() })
+            Pill("Back", onClick = { vm.back() }, icon = Icons.AutoMirrored.Rounded.ArrowBack)
+            if (g.total > 0) Pill("Show: ${vm.achFilter.label}", onClick = { vm.option() }, icon = Icons.AutoMirrored.Rounded.List)
         }
         // Adds or removes the game through the website session, in the
         // background (signing in once first if needed). See RaWeb.
@@ -115,8 +121,13 @@ private fun GameHeader(vm: AppViewModel, g: GameDetail, stacked: Boolean) {
             Pill(
                 when {
                     busy -> if (wanted == true) "Removing…" else "Adding…"
-                    wanted == true -> "✓ On Want to Play"
-                    else -> "+ Want to Play"
+                    wanted == true -> "On Want to Play"
+                    else -> "Want to Play"
+                },
+                icon = when {
+                    busy -> Icons.Rounded.Refresh
+                    wanted == true -> Icons.Rounded.Check
+                    else -> Icons.Rounded.Add
                 },
                 selected = wanted == true && !busy,
                 onClick = { vm.toggleWantToPlay(g.id) },
