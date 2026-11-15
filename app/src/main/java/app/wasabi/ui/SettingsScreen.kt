@@ -1,5 +1,6 @@
 package app.wasabi.ui
 
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.foundation.background
@@ -60,6 +61,17 @@ fun SettingsTab(vm: AppViewModel) {
                 }
             }
         }
+        fullWidthItem("h:controls") { Heading("Controls", "What each button does") }
+        controlsHelp().forEachIndexed { i, (button, what) ->
+            item(key = "ctl:$i") {
+                FocusRow("ctl:$i", vm) {
+                    Row(Modifier.width(64.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        button.split('/').forEach { ButtonBadge(if (it == REFRESH) Controls.refresh.label else it) }
+                    }
+                    Text(what, color = Palette.Text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                }
+            }
+        }
         fullWidthItem("h:refresh") { Heading("Refresh button", "The button that reloads what you're looking at") }
         items(RefreshButton.entries, key = { "rb:${it.name}" }) { b ->
             val on = Controls.refresh == b
@@ -115,3 +127,15 @@ private fun Switch(on: Boolean, dimmed: Boolean) {
         Box(Modifier.size(14.dp).clip(CircleShape).background(if (on) Color.Black else Palette.Dim))
     }
 }
+
+/** Button → what it does, for the Controls section (keys as ButtonBadge names). */
+fun controlsHelp(): List<Pair<String, String>> = listOf(
+    "DPad" to "Move between items",
+    "A" to "Open, select or change",
+    "B" to "Go back",
+    "X" to "Add the game to Want to Play, or remove it (on a game, or the selected game in a list)",
+    "Y" to "Sort the library, filter achievements, favorite a system, or remove a game from Playing",
+    "L1/R1" to "Previous / next tab (on a game: its tabs)",
+    REFRESH to "Refresh (pick the button below)",
+    "Start" to "Settings",
+)

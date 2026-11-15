@@ -817,7 +817,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Browse -> sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
         HomeTab.Search -> searchResults().map { "sg:${it.id}" }
         HomeTab.Profile -> listOf("signout")
-        HomeTab.Settings -> listOf("upd", "web") + RefreshButton.entries.map { "rb:${it.name}" } + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
+        HomeTab.Settings -> listOf("upd", "web") + controlsHelp().indices.map { "ctl:$it" } + RefreshButton.entries.map { "rb:${it.name}" } + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
             HomeTab.entries.filter { it != HomeTab.Settings }.map { "tab:${it.name}" }
     }
 

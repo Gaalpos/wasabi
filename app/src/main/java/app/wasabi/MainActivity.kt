@@ -44,53 +44,38 @@ class MainActivity : ComponentActivity() {
         vm.onResume()
     }
 
-    // Last handled shoulder press, to drop the duplicate some handhelds send
+    // Last handled button press, to drop the duplicate some handhelds send
     // when the built-in controller shows up as two input devices.
-    private var lastShoulderKey = 0
-    private var lastShoulderTime = 0L
+    private var lastKey = 0
+    private var lastKeyTime = 0L
 
     /**
-     * LB/RB (and LT/RT) switch tabs. They're handled here, before any view
-     * sees them, so a focused text field or web page can't swallow them.
-     * Only the first press counts: held-button repeats and near-instant
-     * duplicates are ignored, and the release is swallowed too.
+     * Controller buttons are handled here, before any view sees them, so a
+     * focused row, text field or web page can't swallow them:
+     * L1/R1 tabs, X Want to Play, Y the screen's option (sort, filter,
+     * favorite, remove), Start Settings, and the refresh button (R2 unless
+     * changed in Settings). Only the first press counts: held-button
+     * repeats and near-instant duplicates are ignored, and the release is
+     * swallowed too. A and B keep Android's default handling (open, back).
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (vm.screen == Screen.Login) return super.dispatchKeyEvent(event)
-        // The refresh button (R2 unless changed in Settings), first press only.
-        if (event.keyCode == Controls.refresh.keyCode) {
-            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) vm.refresh()
-            return true
-        }
-        val delta = when (event.keyCode) {
-            KeyEvent.KEYCODE_BUTTON_L1 -> -1
-            KeyEvent.KEYCODE_BUTTON_R1 -> 1
-            else -> 0
-        }
-        if (delta == 0) return super.dispatchKeyEvent(event)
-        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-            val duplicate = event.keyCode == lastShoulderKey && event.eventTime - lastShoulderTime < 150
-            lastShoulderKey = event.keyCode
-            lastShoulderTime = event.eventTime
-            if (!duplicate) vm.cycleTab(delta)
-        }
-        return true
-    }
-
-    /**
-     * Face buttons the UI doesn't consume itself. A (confirm) and B (back)
-     * are handled by Android's default gamepad mapping.
-     */
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (vm.screen == Screen.Login) return super.onKeyDown(keyCode, event)
-        val action: (() -> Unit)? = when (keyCode) {
-            KeyEvent.KEYCODE_BUTTON_Y -> vm::option
+        val action: (() -> Unit)? = when (event.keyCode) {
+            Controls.refresh.keyCode -> vm::refresh
+            KeyEvent.KEYCODE_BUTTON_L1 -> { { vm.cycleTab(-1) } }
+            KeyEvent.KEYCODE_BUTTON_R1 -> { { vm.cycleTab(1) } }
             KeyEvent.KEYCODE_BUTTON_X -> vm::wantToPlayShortcut
+            KeyEvent.KEYCODE_BUTTON_Y -> vm::option
             KeyEvent.KEYCODE_BUTTON_START -> vm::openSettings
             else -> null
         }
-        if (action == null) return super.onKeyDown(keyCode, event)
-        if (event.repeatCount == 0) action()   // holding the button doesn't repeat it
+        if (action == null) return super.dispatchKeyEvent(event)
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            val duplicate = event.keyCode == lastKey && event.eventTime - lastKeyTime < 150
+            lastKey = event.keyCode
+            lastKeyTime = event.eventTime
+            if (!duplicate) action()
+        }
         return true
     }
 }

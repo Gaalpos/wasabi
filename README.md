@@ -41,14 +41,18 @@ Wasabi green means hardcore and silver means softcore.
 
 | Button | Action |
 | --- | --- |
-| D-pad | Move |
-| A | Open |
-| B | Back |
+| D-pad | Move between items |
+| A | Open, select or change |
+| B | Go back |
+| X | Add the game to Want to Play, or remove it (on a game, or the selected game in any list; game rows also have a +/✓ button) |
+| Y | Sort the library, filter achievements, favorite a system, or remove a game from Playing |
 | L1 / R1 | Previous / next tab (on a game: its tabs) |
-| Y | Sort the library, filter achievements, favorite a system, or remove from Playing |
-| X | Add or remove the game from Want to Play (on a game, or the selected game in any list; game rows also have a +/✓ button) |
 | R2 | Refresh. Pick L2 or Select instead in **Settings → Refresh button** |
-| Menu (Start) | Jump to the Settings tab (always the last tab): updates, website sign-in, accent color (Wasabi, Teal, Sky, Violet, Pink, Coral, Gold) and which tabs are shown |
+| Start | Settings |
+
+The same list is in **Settings → Controls**. X, Y, Start, L1/R1 and the
+refresh button are handled before anything on screen, and only the first
+press counts (held buttons don't repeat).
 
 A and B work through Android's standard gamepad mapping. If they feel
 swapped, change the A/B layout in the Retroid settings.
