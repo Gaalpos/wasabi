@@ -130,6 +130,15 @@ enum class ConsoleSort(val label: String) {
     Updated("Recently updated"),
 }
 
+/** Sort orders for the Most played / Hacks lists. */
+enum class ListSort(val label: String) {
+    Players("Most players"),
+    Name("A–Z"),
+    Achievements("Most achievements"),
+    Points("Most points"),
+    System("System"),
+}
+
 enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked("Unlocked"), Missable("Missable") }
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -218,6 +227,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // A website game list (most played, hacks), filtered by [listQuery]
     var gameList by mutableStateOf<Load<List<RelatedGame>>?>(null); private set
     var listQuery by mutableStateOf("")
+    var listSort by mutableStateOf(ListSort.Players); private set
     val gameListState = LazyGridState()
 
     // One console's game list
@@ -703,6 +713,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         stack.add(Screen.GameList(kind))
         gameList = null
         listQuery = ""
+        listSort = ListSort.Players
         viewModelScope.launch { gameListState.scrollToItem(0) }
         loadGameList(kind)
     }
@@ -728,12 +739,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** The list filtered by the search box (title words in any order). */
+    /** The list filtered by the search box (title words in any order), in the chosen order. */
     fun filteredGameList(): List<RelatedGame> {
         val all = (gameList as? Load.Ok)?.data.orEmpty()
         val words = listQuery.trim().lowercase().split(' ').filter { it.isNotEmpty() }
-        if (words.isEmpty()) return all
-        return all.filter { g -> val t = g.title.lowercase(); words.all { it in t } }
+        val matches = if (words.isEmpty()) all else all.filter { g -> val t = g.title.lowercase(); words.all { it in t } }
+        val byTitle = compareBy<RelatedGame> { it.title.lowercase() }
+        return when (listSort) {
+            ListSort.Players -> matches.sortedWith(compareByDescending<RelatedGame> { it.players }.then(byTitle))
+            ListSort.Name -> matches.sortedWith(byTitle)
+            ListSort.Achievements -> matches.sortedWith(compareByDescending<RelatedGame> { it.achievements }.then(byTitle))
+            ListSort.Points -> matches.sortedWith(compareByDescending<RelatedGame> { it.points }.then(byTitle))
+            ListSort.System -> matches.sortedWith(compareBy<RelatedGame> { it.console.orEmpty().lowercase() }.then(byTitle))
+        }
+    }
+
+    /** Y on Most played / Hacks: next sort order, back to the top. */
+    fun cycleListSort() {
+        listSort = ListSort.entries[(listSort.ordinal + 1) % ListSort.entries.size]
+        viewModelScope.launch { gameListState.scrollToItem(0) }
+        focusTarget = filteredGameList().firstOrNull()?.let { "gl:${it.id}" } ?: "lsort"
     }
 
     fun openConsole(c: Console) {
@@ -798,6 +823,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 focusTarget = sortedLibrary().firstOrNull()?.let { "g:${it.id}" }
             }
             is Screen.ConsoleGames -> cycleConsoleSort()
+            is Screen.GameList -> cycleListSort()
             is Screen.Game -> currentGame?.takeIf { it.tab == GameTab.Achievements }?.let { st ->
                 st.filter = AchFilter.entries[(st.filter.ordinal + 1) % AchFilter.entries.size]
                 viewModelScope.launch { st.listStates.getValue(GameTab.Achievements).scrollToItem(0) }

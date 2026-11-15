@@ -460,6 +460,18 @@ fun GameListScreen(vm: AppViewModel, screen: Screen.GameList) {
                 )
             }
         }
+        Row(
+            Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Pill(
+                "Sort: ${vm.listSort.label}",
+                onClick = { vm.cycleListSort() },
+                compact = true,
+                icon = Icons.AutoMirrored.Rounded.List,
+                focusKey = "lsort", vm = vm,
+            )
+        }
         OutlinedTextField(
             value = vm.listQuery,
             onValueChange = { vm.listQuery = it },
@@ -483,6 +495,6 @@ fun GameListScreen(vm: AppViewModel, screen: Screen.GameList) {
                 }
             }
         }
-        HintBar("A" to "Open", "X" to "Want to Play", "B" to "Back", REFRESH to "Refresh")
+        HintBar("A" to "Open", "X" to "Want to Play", "Y" to "Sort", "B" to "Back", REFRESH to "Refresh")
     }
 }
