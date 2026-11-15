@@ -21,6 +21,9 @@ class ApiException(message: String) : Exception(message)
  * the user's personal Web API key, passed as `y`.
  */
 class RaApi(val user: String, private val key: String) {
+    /** For the hidden browser, which makes the API v2 calls (see RaWeb.gamePageScript). */
+    val webApiKey: String get() = key
+
 
     suspend fun profile(of: String = user): Profile {
         val j = obj("API_GetUserProfile.php", "u" to of)
@@ -162,34 +165,6 @@ class RaApi(val user: String, private val key: String) {
             )
         }.distinctBy { it.id }.sortedBy { it.title.lowercase() }
 
-    /**
-     * A hub's games via API v2 (JSON:API, authenticated with X-API-Key),
-     * oldest release first. Up to 200 games.
-     */
-    suspend fun hubGames(hubId: Int): List<RelatedGame> {
-        val out = mutableListOf<RelatedGame>()
-        var page = 1
-        while (page <= 4) {
-            val j = JSONObject(getV2("hubs/$hubId/games", "sort" to "releasedAt", "page[number]" to "$page", "page[size]" to "50"))
-            val data = j.optJSONArray("data")?.objects().orEmpty()
-            data.mapTo(out) { d ->
-                val a = d.optJSONObject("attributes") ?: JSONObject()
-                RelatedGame(
-                    id = d.optString("id").toIntOrNull() ?: 0,
-                    title = a.str("title").orEmpty(),
-                    iconUrl = media(a.str("badgeUrl")),
-                    console = null,
-                    achievements = a.optInt("achievementsPublished"),
-                    points = a.optInt("pointsTotal"),
-                    released = a.str("releasedAt"),
-                )
-            }
-            if (data.size < 50 || j.optJSONObject("links")?.str("next") == null) break
-            page++
-        }
-        return out.filter { it.id > 0 }.distinctBy { it.id }
-    }
-
     /** [who]'s progress in game [gameId]: (softcore count, hardcore count). */
     suspend fun progressIn(who: String, gameId: Int): Pair<Int, Int> {
         val body = get("API_GetUserProgress.php", arrayOf("u" to who, "i" to "$gameId")).trim()
@@ -262,31 +237,6 @@ class RaApi(val user: String, private val key: String) {
         return JSONArray(body)
     }
 
-    /** API v2 request: same key, sent as the X-API-Key header. */
-    private suspend fun getV2(path: String, vararg params: Pair<String, String>): String =
-        withContext(Dispatchers.IO) {
-            val query = params.joinToString("&") { (k, v) -> "${URLEncoder.encode(k, "UTF-8")}=${URLEncoder.encode(v, "UTF-8")}" }
-            val conn = URL("$BASE_V2/$path?$query").openConnection() as HttpURLConnection
-            conn.connectTimeout = 10_000
-            conn.readTimeout = 20_000
-            conn.setRequestProperty("User-Agent", "Wasabi/1.0 (Android)")
-            conn.setRequestProperty("Accept", "application/vnd.api+json")
-            conn.setRequestProperty("X-API-Key", key)
-            try {
-                val code = conn.responseCode
-                val body = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
-                when (code) {
-                    in 200..299 -> body
-                    401, 403 -> throw ApiException("Web API key not accepted for this.")
-                    404 -> throw ApiException("Not found on RetroAchievements.")
-                    429 -> throw ApiException("Too many requests. Wait a moment and retry.")
-                    else -> throw ApiException("RetroAchievements returned an error ($code).")
-                }
-            } finally {
-                conn.disconnect()
-            }
-        }
-
     private suspend fun get(endpoint: String, params: Array<out Pair<String, String>>): String =
         withContext(Dispatchers.IO) {
             val query = (params.toList() + ("y" to key)).joinToString("&") { (k, v) ->
@@ -315,7 +265,6 @@ class RaApi(val user: String, private val key: String) {
 
     companion object {
         private const val BASE = "https://retroachievements.org/API"
-        private const val BASE_V2 = "https://retroachievements.org/api/v2"
 
         /** Parses the JSON that RaWeb.gamePageScript reports. */
         fun parseExtras(json: String): GameExtras {
@@ -334,6 +283,18 @@ class RaApi(val user: String, private val key: String) {
                         points = g.optInt("points"),
                     )
                 }.filter { it.id > 0 },
+                seriesGames = j.optJSONArray("seriesGames")?.objects()?.map { g ->
+                    RelatedGame(
+                        id = g.optInt("id"),
+                        title = g.str("title").orEmpty(),
+                        iconUrl = media(g.str("badgeUrl")),
+                        console = null,
+                        achievements = g.optInt("achievements"),
+                        points = g.optInt("points"),
+                        released = g.str("released"),
+                    )
+                }?.filter { it.id > 0 },
+                seriesStatus = if (j.has("seriesStatus")) j.optInt("seriesStatus") else null,
             )
         }
 

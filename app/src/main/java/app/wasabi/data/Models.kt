@@ -188,6 +188,10 @@ data class GameExtras(
     val series: HubRef?,
     val hubs: List<HubRef>,
     val similar: List<RelatedGame>,
+    /** The series' games, oldest first; null if they couldn't be loaded. */
+    val seriesGames: List<RelatedGame>? = null,
+    /** HTTP status when loading the series' games failed. */
+    val seriesStatus: Int? = null,
 )
 
 /** Someone's progress in one game, for Compare. */

@@ -149,7 +149,7 @@ fun RaPageWorker(vm: AppViewModel) {
                         override fun onPageFinished(view: WebView, url: String) {
                             if (sent) return
                             sent = true
-                            view.evaluateJavascript(RaWeb.gamePageScript(job.nonce), null)
+                            view.evaluateJavascript(RaWeb.gamePageScript(job.nonce, job.apiKey), null)
                         }
 
                         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {

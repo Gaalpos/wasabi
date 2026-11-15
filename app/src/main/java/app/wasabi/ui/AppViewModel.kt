@@ -106,7 +106,7 @@ class GameState {
 }
 
 /** A website page to read in the hidden browser. */
-data class PageJob(val url: String, val nonce: String = System.nanoTime().toString())
+data class PageJob(val url: String, val apiKey: String, val nonce: String = System.nanoTime().toString())
 
 enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked("Unlocked"), Missable("Missable") }
 
@@ -312,7 +312,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (st.tab == t) return
         st.tab = t
         when (t) {
-            GameTab.Series -> if (st.extras !is Load.Ok) loadExtras(s) else if (st.series == null) loadSeries(s)
+            GameTab.Series -> if (st.extras !is Load.Ok) loadExtras(s)
             GameTab.Similar -> if (st.extras !is Load.Ok) loadExtras(s)
             GameTab.Compare -> if (st.compare == null || st.compare is Load.Err) loadCompare(s)
             else -> Unit
@@ -323,14 +323,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Series hub, other hubs and similar games, read from the website's game page. */
     private fun loadExtras(s: Screen.Game) {
         val st = gameState(s)
+        val key = api?.webApiKey ?: return
         st.extras = Load.Loading
         if (st.tab == GameTab.Series) st.series = Load.Loading
-        val job = PageJob("${RaWeb.ORIGIN}/game/${s.id}")
+        val job = PageJob("${RaWeb.ORIGIN}/game/${s.id}", key)
         pageCallbacks[job.nonce] = { json ->
             st.extras = runCatching { Load.Ok(RaApi.parseExtras(json!!)) }
                 .getOrElse { Load.Err("Couldn't read this game's page on retroachievements.org.") }
             when (val e = st.extras) {
-                is Load.Ok -> if (e.data.series != null) loadSeries(s) else st.series = Load.Ok(emptyList())
+                is Load.Ok -> st.series = when {
+                    e.data.series == null -> Load.Ok(emptyList())
+                    e.data.seriesGames != null -> Load.Ok(e.data.seriesGames)
+                    e.data.seriesStatus == 401 -> Load.Err("RetroAchievements didn't accept the Web API key for the series list.")
+                    else -> Load.Err("Couldn't load the series' games (error ${e.data.seriesStatus ?: "unknown"}). Press X to retry.")
+                }
                 is Load.Err -> st.series = Load.Err(e.message)
                 else -> Unit
             }
@@ -347,12 +353,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun onPageData(nonce: String, json: String?) {
         if (pageJob?.nonce == nonce) pageJob = null
         pageCallbacks.remove(nonce)?.invoke(json?.takeIf { it.isNotBlank() })
-    }
-
-    private fun loadSeries(s: Screen.Game) {
-        val st = gameState(s)
-        val hub = (st.extras as? Load.Ok)?.data?.series ?: return
-        launchLoad("series:${s.key}", { st.series = it }, { if (screen == s) restoreFocusHere(preferContent = true) }) { hubGames(hub.id) }
     }
 
     private fun loadCompare(s: Screen.Game) {

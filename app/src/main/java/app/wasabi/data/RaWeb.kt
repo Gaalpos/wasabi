@@ -3,6 +3,7 @@ package app.wasabi.data
 import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import org.json.JSONObject
 
 /**
  * The retroachievements.org website session, used only to add and remove
@@ -48,11 +49,16 @@ object RaWeb {
 
     /**
      * Reads a game page's embedded data (the website's Inertia page props:
-     * GameShowPagePropsData) and reports the series hub, other hubs and
-     * similar games through WasabiBridge.data(nonce, json), or "" on failure.
+     * GameShowPagePropsData): series hub, other hubs and similar games. Then,
+     * from the same page, fetches the series' games from API v2
+     * (/api/v2/hubs/{id}/games, X-API-Key). API v2 sits behind Cloudflare's
+     * browser check, so it has to be called from here, not from the app.
+     * Reports JSON through WasabiBridge.data(nonce, json), or "" on failure.
      */
-    fun gamePageScript(nonce: String): String = """
-        (function () {
+    fun gamePageScript(nonce: String, apiKey: String): String {
+        val key = JSONObject.quote(apiKey)
+        return """
+        (async function () {
           try {
             var raw = null;
             var app = document.getElementById('app');
@@ -72,12 +78,33 @@ object RaWeb {
               hubs: (p.hubs || []).map(hub),
               similar: (p.similarGames || []).map(game)
             };
+            if (out.series) {
+              var list = [];
+              for (var page = 1; page <= 4; page++) {
+                var r = await fetch('/api/v2/hubs/' + out.series.id + '/games?sort=releasedAt&page%5Bsize%5D=50&page%5Bnumber%5D=' + page, {
+                  credentials: 'same-origin',
+                  headers: { 'Accept': 'application/vnd.api+json', 'X-API-Key': $key }
+                });
+                if (!r.ok) { out.seriesStatus = r.status; break; }
+                var j = await r.json();
+                var data = j.data || [];
+                data.forEach(function (d) {
+                  var a = d.attributes || {};
+                  list.push({ id: parseInt(d.id, 10), title: a.title || '', badgeUrl: a.badgeUrl || null,
+                              achievements: a.achievementsPublished || 0, points: a.pointsTotal || 0,
+                              released: a.releasedAt || null });
+                });
+                if (data.length < 50 || !(j.links && j.links.next)) break;
+              }
+              if (!out.seriesStatus) out.seriesGames = list;
+            }
             WasabiBridge.data('$nonce', JSON.stringify(out));
           } catch (e) {
             WasabiBridge.data('$nonce', '');
           }
         })();
-    """
+        """
+    }
 
     /**
      * Adds ([add] = true) or removes a game from Want to Play and reports
