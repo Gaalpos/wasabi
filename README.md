@@ -10,7 +10,7 @@ the built-in buttons as well as touch.
 
 | Tab | Contents |
 | --- | --- |
-| **Playing** | Your 50 most recently played games, with progress bars |
+| **Playing** | Your 50 most recently played games, with progress bars. Press **Y** (or tap ✕) to remove a game from this list, with Undo; bring them back in Settings. This only hides it in Wasabi: RetroAchievements can't remove a recently played game without resetting its progress |
 | **For You** | Suggestions: games you're close to mastering, games people you follow are playing, picks from Want to Play |
 | **Want to Play** | Your RetroAchievements Want to Play list, with achievement counts and points. Add or remove a game with the **Want to Play** button on its screen |
 | **Library** | Every game you've unlocked something in; sort by recent, progress or name |

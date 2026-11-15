@@ -299,6 +299,11 @@ class Prefs(context: Context) {
         get() = sp.getString("tabs", null)
         set(v) = sp.edit().putString("tabs", v).apply()
 
+    /** Game ids hidden from the Playing tab (Wasabi only; RA is unchanged). */
+    var hiddenPlaying: Set<Int>
+        get() = sp.getString("hiddenPlaying", null)?.split(',')?.mapNotNull { it.toIntOrNull() }?.toSet().orEmpty()
+        set(v) = sp.edit().putString("hiddenPlaying", v.joinToString(",")).apply()
+
     /** Favorite system (console) ids, shown first in Browse. */
     var favoriteConsoles: Set<Int>
         get() = sp.getString("favConsoles", null)?.split(',')?.mapNotNull { it.toIntOrNull() }?.toSet().orEmpty()

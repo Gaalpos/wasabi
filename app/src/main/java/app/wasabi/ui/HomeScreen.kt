@@ -1,5 +1,7 @@
 package app.wasabi.ui
 
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
@@ -93,6 +95,7 @@ fun HomeScreen(vm: AppViewModel) {
                 HomeTab.Settings -> HintBar("A" to "Change", "X" to "Check for updates", "L1/R1" to "Tabs")
                 HomeTab.Search -> HintBar("A" to "Open", "X" to "Reload games", "L1/R1" to "Tabs")
                 HomeTab.Browse -> HintBar("A" to "Open", "Y" to "Favorite", "X" to "Refresh", "L1/R1" to "Tabs")
+                HomeTab.Playing -> HintBar("A" to "Open", "Y" to "Remove", "X" to "Refresh", "L1/R1" to "Tabs")
                 else -> HintBar("A" to "Open", "X" to "Refresh", "L1/R1" to "Tabs")
             }
         }
@@ -242,12 +245,42 @@ private fun PlayingTab(vm: AppViewModel) {
     when (val s = vm.recent) {
         null, Load.Loading -> LoadingView()
         is Load.Err -> ErrorView(s.message, vm) { vm.refresh() }
-        is Load.Ok -> if (s.data.isEmpty()) EmptyView("No games played yet.") else CardGrid(vm.listState(HomeTab.Playing)) {
-            items(s.data, key = { it.id }) { g ->
-                GameRow(
-                    vm, "g:${g.id}", g.title, g.iconUrl, g, award = null,
-                    sub = if (g.lastPlayed != null) "${g.console} · ${ago(g.lastPlayed)}" else g.console,
-                ) { vm.openGame(g.id, g.title) }
+        is Load.Ok -> {
+            val games = vm.visibleRecent()
+            val undo = vm.lastHidden
+            if (games.isEmpty() && undo == null) {
+                EmptyView(if (s.data.isEmpty()) "No games played yet." else "All recent games are hidden. Show them again in Settings.")
+            } else CardGrid(vm.listState(HomeTab.Playing)) {
+                if (undo != null) {
+                    fullWidthItem("undo") {
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Palette.Surface)
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Removed ${undo.title} from Playing",
+                                color = Palette.Dim, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Pill("Undo", onClick = { vm.undoHide() }, compact = true, focusKey = "undo", vm = vm)
+                        }
+                    }
+                }
+                items(games, key = { it.id }) { g ->
+                    GameRow(
+                        vm, "g:${g.id}", g.title, g.iconUrl, g, award = null,
+                        sub = if (g.lastPlayed != null) "${g.console} · ${ago(g.lastPlayed)}" else g.console,
+                        trailing = {
+                            Icon(
+                                Icons.Rounded.Close,
+                                contentDescription = "Remove from Playing",
+                                tint = Palette.Faint,
+                                modifier = Modifier.size(22.dp).clip(CircleShape).clickable { vm.hideFromPlaying(g.id) },
+                            )
+                        },
+                    ) { vm.openGame(g.id, g.title) }
+                }
             }
         }
     }
@@ -331,6 +364,7 @@ fun GameRow(
     progress: GameProgress,
     award: String?,
     sub: String,
+    trailing: (@Composable () -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     FocusRow(key, vm, onClick = onClick) {
@@ -360,6 +394,7 @@ fun GameRow(
                 Text("No achievements yet", color = Palette.Faint, fontSize = 11.sp)
             }
         }
+        trailing?.invoke()
     }
 }
 

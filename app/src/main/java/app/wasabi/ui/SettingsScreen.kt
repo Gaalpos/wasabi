@@ -46,6 +46,20 @@ fun SettingsTab(vm: AppViewModel) {
                 }
             }
         }
+        if (vm.hiddenPlaying.isNotEmpty()) {
+            fullWidthItem("h:hidden") { Heading("Playing", "Games you removed from the Playing tab") }
+            fullWidthItem("hidden") {
+                FocusRow("hidden", vm, onClick = { vm.showHiddenPlaying() }) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "${vm.hiddenPlaying.size} hidden " + if (vm.hiddenPlaying.size == 1) "game" else "games",
+                            color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                        Text("Press A to show them in Playing again", color = Palette.Dim, fontSize = 11.sp)
+                    }
+                }
+            }
+        }
         fullWidthItem("h:accent") { Heading("Accent color", "Used for highlights, selection and hardcore unlocks") }
         items(AccentColor.entries, key = { "ac:${it.name}" }) { c ->
             val on = Palette.accent == c

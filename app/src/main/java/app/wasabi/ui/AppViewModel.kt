@@ -117,6 +117,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // Settings
     var enabledTabs by mutableStateOf(HomeTab.entries.toSet()); private set
     val visibleTabs: List<HomeTab> get() = HomeTab.entries.filter { it in enabledTabs || it == HomeTab.Settings }
+    /** Games hidden from Playing, and the last one hidden (for Undo). */
+    var hiddenPlaying by mutableStateOf(prefs.hiddenPlaying); private set
+    var lastHidden by mutableStateOf<RecentGame?>(null); private set
+
     /** Favorite systems, listed first in Browse. */
     var favoriteConsoles by mutableStateOf(prefs.favoriteConsoles); private set
 
@@ -245,6 +249,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun selectTab(t: HomeTab) {
         if (t == tab) return
+        lastHidden = null
         val all = visibleTabs
         tabDirection = if (all.indexOf(t) >= all.indexOf(tab)) 1 else -1
         tab = t
@@ -523,7 +528,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** The Y button: sort the library, or filter a game's achievements. */
     fun option() {
         when (screen) {
-            Screen.Home -> if (tab == HomeTab.Browse) {
+            Screen.Home -> if (tab == HomeTab.Playing) {
+                lastFocus[HomeTab.Playing.name]?.removePrefix("g:")?.toIntOrNull()?.let { hideFromPlaying(it) }
+            } else if (tab == HomeTab.Browse) {
                 // Star or unstar the focused system; focus follows it to its new spot.
                 lastFocus[HomeTab.Browse.name]?.removePrefix("c:")?.toIntOrNull()?.let {
                     toggleFavoriteConsole(it)
@@ -572,6 +579,40 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Recently played games, minus the ones hidden in Wasabi. */
+    fun visibleRecent(): List<RecentGame> = (recent as? Load.Ok)?.data.orEmpty().filter { it.id !in hiddenPlaying }
+
+    /**
+     * Hides a game from Playing (RetroAchievements has no way to remove a
+     * recently played game short of resetting its progress). Focus moves to
+     * the next game, and [lastHidden] offers Undo.
+     */
+    fun hideFromPlaying(id: Int) {
+        val list = visibleRecent()
+        val i = list.indexOfFirst { it.id == id }
+        if (i < 0) return
+        lastHidden = list[i]
+        hiddenPlaying = hiddenPlaying + id
+        prefs.hiddenPlaying = hiddenPlaying
+        val next = list.getOrNull(i + 1) ?: list.getOrNull(i - 1)
+        focusTarget = next?.let { "g:${it.id}" } ?: "undo"
+    }
+
+    fun undoHide() {
+        val g = lastHidden ?: return
+        hiddenPlaying = hiddenPlaying - g.id
+        prefs.hiddenPlaying = hiddenPlaying
+        lastHidden = null
+        focusTarget = "g:${g.id}"
+    }
+
+    /** Brings every hidden game back to Playing. */
+    fun showHiddenPlaying() {
+        hiddenPlaying = emptySet()
+        prefs.hiddenPlaying = hiddenPlaying
+        lastHidden = null
+    }
+
     fun isFavoriteConsole(id: Int) = id in favoriteConsoles
 
     fun toggleFavoriteConsole(id: Int) {
@@ -601,7 +642,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun keysFor(t: HomeTab): List<String> = when (t) {
-        HomeTab.Playing -> (recent as? Load.Ok)?.data.orEmpty().map { "g:${it.id}" }
+        HomeTab.Playing -> visibleRecent().map { "g:${it.id}" }
         HomeTab.ForYou -> (suggested as? Load.Ok)?.data?.let { s ->
             s.almostDone.map { "s:a:${it.id}" } + s.friendsPlaying.map { "s:f:${it.game.id}" } + s.fromWantToPlay.map { "s:w:${it.id}" }
         }.orEmpty()
@@ -612,7 +653,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Browse -> sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
         HomeTab.Search -> searchResults().map { "sg:${it.id}" }
         HomeTab.Profile -> listOf("signout")
-        HomeTab.Settings -> listOf("upd", "web") + AccentColor.entries.map { "ac:${it.name}" } +
+        HomeTab.Settings -> listOf("upd", "web") + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
             HomeTab.entries.filter { it != HomeTab.Settings }.map { "tab:${it.name}" }
     }
 
