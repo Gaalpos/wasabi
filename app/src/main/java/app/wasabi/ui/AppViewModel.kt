@@ -1256,7 +1256,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val keys = keysHere()
         val last = lastFocus[focusScope()]
         focusTarget = when {
-            last != null && last in keys -> last
+            // On a tab switch, go into the tab's content rather than back to the top button.
+            last != null && last in keys && !(preferContent && last == "want") -> last
             preferContent -> keys.firstOrNull { it != "want" } ?: keys.firstOrNull()
             else -> keys.firstOrNull()
         }

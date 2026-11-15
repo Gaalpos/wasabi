@@ -8,3 +8,11 @@
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }
+
+# WorkManager (notifications, widget) creates its Room database and the
+# background worker by reflection. Without these, R8 strips the no-argument
+# WorkDatabase_Impl constructor and the app crashes at startup.
+-keep class * extends androidx.room.RoomDatabase { <init>(); }
+-keep class * extends androidx.work.ListenableWorker {
+    public <init>(android.content.Context, androidx.work.WorkerParameters);
+}

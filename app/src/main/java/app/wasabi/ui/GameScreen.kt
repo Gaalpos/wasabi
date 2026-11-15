@@ -467,7 +467,7 @@ private fun MediaImage(vm: AppViewModel, key: String, url: String, label: String
     val requester = remember { FocusRequester() }
     if (vm.focusTarget == key) {
         LaunchedEffect(key) {
-            runCatching { requester.requestFocus() }
+            requestFocusWhenReady(requester) { focused }
             vm.consumeFocus(key)
         }
     }

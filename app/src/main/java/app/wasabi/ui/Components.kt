@@ -1,5 +1,6 @@
 package app.wasabi.ui
 
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.fadeOut
@@ -150,7 +151,7 @@ fun FocusRow(
     val requester = remember { FocusRequester() }
     if (vm.focusTarget == focusKey) {
         LaunchedEffect(focusKey) {
-            runCatching { requester.requestFocus() }
+            requestFocusWhenReady(requester) { focused }
             vm.consumeFocus(focusKey)
         }
     }
@@ -191,7 +192,7 @@ fun Pill(
     val requester = remember { FocusRequester() }
     if (focusKey != null && vm != null && vm.focusTarget == focusKey) {
         LaunchedEffect(focusKey) {
-            runCatching { requester.requestFocus() }
+            requestFocusWhenReady(requester) { focused }
             vm.consumeFocus(focusKey)
         }
     }
@@ -577,4 +578,16 @@ fun OfflineBanner() {
         modifier = Modifier.fillMaxWidth().background(Palette.Soft).padding(vertical = 3.dp),
         textAlign = TextAlign.Center,
     )
+}
+
+/**
+ * Asks for focus, retrying for up to about half a second: right after a tab
+ * switch the new content is still sliding in and may not take focus yet.
+ */
+suspend fun requestFocusWhenReady(requester: FocusRequester, isFocused: () -> Boolean) {
+    repeat(30) {
+        runCatching { requester.requestFocus() }
+        withFrameNanos { }
+        if (isFocused()) return
+    }
 }
