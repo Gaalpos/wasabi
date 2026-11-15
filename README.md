@@ -12,7 +12,7 @@ the built-in buttons as well as touch.
 | --- | --- |
 | **Playing** | Your 50 most recently played games, with progress bars |
 | **For You** | Suggestions: games you're close to mastering, games people you follow are playing, picks from Want to Play |
-| **Want to Play** | Your RetroAchievements Want to Play list, with achievement counts and points. To add a game, press **Want to Play** on its screen: the Web API is read-only, so this opens the game's page on retroachievements.org, and the list reloads when you come back |
+| **Want to Play** | Your RetroAchievements Want to Play list, with achievement counts and points. Add or remove a game with the **Want to Play** button on its screen |
 | **Library** | Every game you've unlocked something in; sort by recent, progress or name |
 | **Unlocks** | Your unlocks from the last 30 days |
 | **Following** | Players you follow; open one to see their recent games, unlocks and per-game progress |
@@ -71,6 +71,17 @@ Or build an APK you can copy over and sideload:
 The APK ends up in `app/build/outputs/wasabi/`, named with its version (for example `wasabi-1.3.apk`). It's signed with the
 debug key, so it installs without setting up a keystore.
 
+## Adding to Want to Play
+
+The Web API (v1 and v2) is read-only, so Wasabi changes the list the same way
+the website does, with `POST`/`DELETE /internal-api/user-game-list/{gameId}`.
+The first time, Wasabi shows retroachievements.org's own login page
+("Remember me" is ticked for you). Your password goes to the website, never
+to Wasabi. After that, every add or remove runs in a hidden browser in the
+background. If the website session ends, Wasabi asks you to sign in again.
+These are internal website requests, so a site update could break them.
+Sign out under **Settings → RetroAchievements website**.
+
 ## Updates
 
 Wasabi checks GitHub for a newer release when it starts and shows a banner
@@ -99,6 +110,8 @@ app/src/main/java/app/wasabi/
   ui/SettingsScreen.kt   updates, accent color and tab choices
   data/Updater.kt        in-app updates from GitHub releases
   ui/UpdateUi.kt         update banner and Settings row
+  data/RaWeb.kt          website requests for Want to Play
+  ui/WebScreens.kt       website sign-in and the hidden browser
   ui/GameScreen.kt       achievement list
 ```
 

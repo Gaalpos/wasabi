@@ -18,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -108,24 +107,21 @@ private fun GameHeader(vm: AppViewModel, g: GameDetail, stacked: Boolean) {
             Pill("‹ Back", onClick = { vm.back() })
             if (g.total > 0) Pill("Show: ${vm.achFilter.label}", onClick = { vm.option() })
         }
-        // The Web API is read-only, so the list is edited on the game's RA page,
-        // where you're signed in. Wasabi reloads the list when you come back.
-        val uri = LocalUriHandler.current
+        // Adds or removes the game through the website session, in the
+        // background (signing in once first if needed). See RaWeb.
         val wanted = vm.isWanted(g.id)
+        val busy = vm.wantBusy == g.id
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Pill(
-                when (wanted) {
-                    true -> "✓ On Want to Play"
-                    false -> "+ Want to Play"
-                    null -> "Want to Play"
+                when {
+                    busy -> if (wanted == true) "Removing…" else "Adding…"
+                    wanted == true -> "✓ On Want to Play"
+                    else -> "+ Want to Play"
                 },
-                selected = wanted == true,
-                onClick = {
-                    vm.editingWantToPlay()
-                    runCatching { uri.openUri("https://retroachievements.org/game/${g.id}") }
-                },
+                selected = wanted == true && !busy,
+                onClick = { vm.toggleWantToPlay(g.id) },
             )
-            Text("Opens retroachievements.org", color = Palette.Faint, fontSize = 11.sp)
+            vm.wantError?.let { Text(it, color = Palette.Error, fontSize = 11.sp, modifier = Modifier.weight(1f)) }
         }
     }
 }

@@ -17,6 +17,7 @@ import app.wasabi.data.LibraryGame
 import app.wasabi.data.Prefs
 import app.wasabi.data.Profile
 import app.wasabi.data.RaApi
+import app.wasabi.data.RaWeb
 import app.wasabi.data.RecentGame
 import app.wasabi.data.Suggestions
 import app.wasabi.data.Unlock
@@ -28,6 +29,7 @@ import app.wasabi.data.suggestions
 import app.wasabi.data.userView
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -41,7 +43,12 @@ sealed interface Screen {
     /** All games with achievements on one console. */
     data class ConsoleGames(val id: Int, val name: String) : Screen
     data object Settings : Screen
+    /** One-time sign-in on retroachievements.org, for Want to Play. */
+    data object WebSignIn : Screen
 }
+
+/** One add/remove request for the hidden website session. */
+data class WebJob(val gameId: Int, val add: Boolean, val nonce: String = System.nanoTime().toString())
 
 sealed interface Load<out T> {
     data object Loading : Load<Nothing>
@@ -118,6 +125,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private var updateDismissed by mutableStateOf(false)
     val showUpdateBanner: Boolean
         get() = !updateDismissed && update.let { it is UpdateState.Available || it is UpdateState.Downloading || it is UpdateState.Ready }
+
+    // Want to Play edits through the website session (see RaWeb).
+    var webSignedIn by mutableStateOf(prefs.webSignedIn); private set
+    /** The request the hidden WebView should run now, if any. */
+    var webJob by mutableStateOf<WebJob?>(null); private set
+    /** Game whose Want to Play change is in flight. */
+    var wantBusy by mutableStateOf<Int?>(null); private set
+    var wantError by mutableStateOf<String?>(null); private set
+    private var afterSignIn: WebJob? = null
 
     /** Set when the RA site was opened to edit Want to Play; refresh on return. */
     private var wantToPlayEdited = false
@@ -202,6 +218,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun signOut() {
         jobs.values.forEach { it.cancel() }
+        webSignOut()
         prefs.clearKey()
         api = null
         profile = Load.Loading
@@ -262,6 +279,86 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Whether game [id] is on your Want to Play list, or null if unknown. */
     fun isWanted(id: Int): Boolean? = (wantToPlay as? Load.Ok)?.data?.any { it.id == id }
+
+    /** Adds the game to Want to Play, or removes it if it's already there. */
+    fun toggleWantToPlay(gameId: Int) {
+        if (wantBusy != null) return
+        wantError = null
+        val job = WebJob(gameId, add = isWanted(gameId) != true)
+        if (!webSignedIn) {
+            afterSignIn = job
+            stack.add(Screen.WebSignIn)
+            return
+        }
+        runWebJob(job)
+    }
+
+    private fun runWebJob(job: WebJob) {
+        wantBusy = job.gameId
+        webJob = job
+        viewModelScope.launch {
+            delay(25_000)
+            if (webJob?.nonce == job.nonce) onWebResult(job.nonce, -2)
+        }
+    }
+
+    /** Result from the hidden WebView (status code, or -1/-2 for network/timeout). */
+    fun onWebResult(nonce: String, status: Int) {
+        val job = webJob?.takeIf { it.nonce == nonce } ?: return
+        webJob = null
+        wantBusy = null
+        when {
+            status in 200..299 -> applyWantChange(job)
+            status == 401 || status == 419 -> {
+                // The website session ended: sign in again, then retry.
+                setWebSignedIn(false)
+                afterSignIn = job.copy(nonce = System.nanoTime().toString())
+                if (screen != Screen.WebSignIn) stack.add(Screen.WebSignIn)
+            }
+            status == -2 -> wantError = "retroachievements.org took too long. Try again."
+            status < 0 -> wantError = "Couldn't reach retroachievements.org."
+            else -> wantError = "Couldn't update Want to Play (error $status)."
+        }
+    }
+
+    /** Update the local list right away instead of waiting for a reload. */
+    private fun applyWantChange(job: WebJob) {
+        val list = (wantToPlay as? Load.Ok)?.data.orEmpty()
+        val g = (game as? Load.Ok)?.data?.takeIf { it.id == job.gameId }
+        wantToPlay = Load.Ok(
+            if (job.add) {
+                if (list.any { it.id == job.gameId } || g == null) list
+                else listOf(WantGame(g.id, g.title, g.console, g.iconUrl, g.total, g.points)) + list
+            } else {
+                list.filterNot { it.id == job.gameId }
+            }
+        )
+    }
+
+    /** The sign-in page reached a signed-in page. */
+    fun onWebSignedIn() {
+        setWebSignedIn(true)
+        if (screen == Screen.WebSignIn) {
+            stack.removeAt(stack.lastIndex)
+            restoreFocusHere()
+        }
+        afterSignIn?.let { runWebJob(it) }
+        afterSignIn = null
+    }
+
+    fun openWebSignIn() {
+        if (screen != Screen.WebSignIn) stack.add(Screen.WebSignIn)
+    }
+
+    fun webSignOut() {
+        RaWeb.signOut()
+        setWebSignedIn(false)
+    }
+
+    private fun setWebSignedIn(v: Boolean) {
+        webSignedIn = v
+        prefs.webSignedIn = v
+    }
 
     /** Called before opening the game's RetroAchievements page to edit the list. */
     fun editingWantToPlay() {
@@ -389,6 +486,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             is Screen.Game -> { jobs["game"]?.cancel(); game = null }
             is Screen.User -> { jobs["user"]?.cancel(); user = null }
             is Screen.ConsoleGames -> { jobs["console"]?.cancel(); consoleGames = null }
+            Screen.WebSignIn -> afterSignIn = null
             else -> Unit
         }
         restoreFocusHere()
@@ -401,7 +499,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             is Screen.Game -> loadGame(s)
             is Screen.User -> loadUser(s.name)
             is Screen.ConsoleGames -> loadConsole(s.id)
-            Screen.Settings, Screen.Login -> Unit
+            Screen.Settings, Screen.WebSignIn, Screen.Login -> Unit
         }
     }
 
@@ -488,8 +586,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             v.recentGames.map { "ug:${it.id}" } + v.unlocks.map { "uu:${it.achievementId}:${it.date}" }
         }.orEmpty()
         is Screen.ConsoleGames -> filteredConsoleGames().map { "cg:${it.id}" }
-        Screen.Settings -> listOf("upd") + AccentColor.entries.map { "ac:${it.name}" } + HomeTab.entries.map { "tab:${it.name}" }
-        Screen.Login -> emptyList()
+        Screen.Settings -> listOf("upd", "web") + AccentColor.entries.map { "ac:${it.name}" } + HomeTab.entries.map { "tab:${it.name}" }
+        Screen.WebSignIn, Screen.Login -> emptyList()
     }
 
     /** Focus the row you last used on this screen, or its first row. */
