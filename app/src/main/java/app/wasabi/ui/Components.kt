@@ -215,11 +215,18 @@ fun AwardTag(kind: String?) {
         "beaten-softcore" -> "Beaten" to Palette.Soft
         else -> return
     }
+    Tag(label, color)
+}
+
+/** Small tinted label, e.g. "Mastered" or "Follows you". */
+@Composable
+fun Tag(label: String, color: Color) {
     Text(
         label,
         color = color,
         fontSize = 11.sp,
         fontWeight = FontWeight.Bold,
+        maxLines = 1,
         modifier = Modifier
             .clip(RoundedCornerShape(4.dp))
             .background(color.copy(alpha = 0.15f))

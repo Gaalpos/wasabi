@@ -1,5 +1,6 @@
 package app.wasabi.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -14,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
@@ -26,6 +29,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.wasabi.data.GameProgress
 import app.wasabi.data.Profile
+import app.wasabi.data.WantGame
 
 /** Below this width the layout is the single-column handheld/phone layout. */
 val WideWidth = 600.dp
@@ -49,17 +55,20 @@ fun HomeScreen(vm: AppViewModel) {
             if (wide) {
                 // 16:9 / 4:3 landscape: profile and tabs share one row to save height.
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    ProfileBar(vm.profile, Modifier.weight(1f))
-                    Tabs(vm, Modifier.padding(end = 10.dp))
+                    ProfileBar(vm.profile, Modifier.widthIn(max = 300.dp).weight(1f, fill = false))
+                    Tabs(vm, Modifier.weight(1f).padding(end = 10.dp))
                 }
             } else {
                 ProfileBar(vm.profile)
-                Tabs(vm, Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp))
+                Tabs(vm, Modifier.fillMaxWidth().padding(horizontal = 10.dp))
             }
             Box(Modifier.weight(1f).padding(top = 4.dp)) {
                 when (vm.tab) {
                     HomeTab.Playing -> PlayingTab(vm)
+                    HomeTab.ForYou -> ForYouTab(vm)
                     HomeTab.WantToPlay -> WantToPlayTab(vm)
+                    HomeTab.Following -> FollowingTab(vm)
+                    HomeTab.Browse -> BrowseTab(vm)
                     HomeTab.Library -> LibraryTab(vm)
                     HomeTab.Unlocks -> UnlocksTab(vm)
                     HomeTab.Profile -> ProfileTab(vm, wide)
@@ -74,11 +83,24 @@ fun HomeScreen(vm: AppViewModel) {
     }
 }
 
+/** Scrollable tab strip; the selected tab is kept in view when L1/R1 change it. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Tabs(vm: AppViewModel, modifier: Modifier = Modifier) {
-    Row(modifier.padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(
+        modifier.horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         HomeTab.entries.forEach { t ->
-            Pill(t.label, onClick = { vm.selectTab(t) }, selected = vm.tab == t)
+            val selected = vm.tab == t
+            val requester = remember { BringIntoViewRequester() }
+            LaunchedEffect(selected) { if (selected) requester.bringIntoView() }
+            Pill(
+                t.label,
+                onClick = { vm.selectTab(t) },
+                selected = selected,
+                modifier = Modifier.bringIntoViewRequester(requester),
+            )
         }
     }
 }
@@ -164,24 +186,27 @@ private fun WantToPlayTab(vm: AppViewModel) {
                     modifier = Modifier.padding(start = 2.dp, top = 2.dp, bottom = 2.dp),
                 )
             }
-            items(s.data, key = { it.id }) { g ->
-                FocusRow("w:${g.id}", vm, onClick = { vm.openGame(g.id, g.title) }) {
-                    Thumb(g.iconUrl, 44.dp)
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            g.title,
-                            color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(g.console, color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            if (g.achievements > 0) "${num(g.achievements)} achievements · ${num(g.points)} pts" else "No achievements yet",
-                            color = if (g.achievements > 0) Palette.Accent else Palette.Faint,
-                            fontSize = 11.sp,
-                        )
-                    }
-                }
-            }
+            items(s.data, key = { it.id }) { g -> WantRow(vm, "w:${g.id}", g) }
+        }
+    }
+}
+
+@Composable
+fun WantRow(vm: AppViewModel, key: String, g: WantGame) {
+    FocusRow(key, vm, onClick = { vm.openGame(g.id, g.title) }) {
+        Thumb(g.iconUrl, 44.dp)
+        Column(Modifier.weight(1f)) {
+            Text(
+                g.title,
+                color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            Text(g.console, color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                if (g.achievements > 0) "${num(g.achievements)} achievements · ${num(g.points)} pts" else "No achievements yet",
+                color = if (g.achievements > 0) Palette.Accent else Palette.Faint,
+                fontSize = 11.sp,
+            )
         }
     }
 }
@@ -216,7 +241,7 @@ private fun LibraryTab(vm: AppViewModel) {
 }
 
 @Composable
-private fun GameRow(
+fun GameRow(
     vm: AppViewModel,
     key: String,
     title: String,

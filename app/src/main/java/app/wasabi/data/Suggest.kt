@@ -1,0 +1,61 @@
+package app.wasabi.data
+
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+
+/** Games from people you follow, checked for suggestions (keeps API calls modest). */
+private const val FRIENDS_CHECKED = 10
+
+/**
+ * RetroAchievements has no suggestions endpoint, so Wasabi builds its own
+ * from three sources:
+ * - games you're at least halfway through but haven't mastered,
+ * - games people you follow played recently that you haven't started,
+ * - a few random picks from your Want to Play list.
+ */
+suspend fun RaApi.suggestions(): Suggestions = coroutineScope {
+    val libraryJob = async { library() }
+    val wantJob = async { runCatching { wantToPlay() }.getOrDefault(emptyList()) }
+    val followingJob = async { runCatching { following() }.getOrDefault(emptyList()) }
+
+    val library = libraryJob.await()
+    val mine = library.map { it.id }.toSet()
+
+    val almostDone = library
+        .filter { it.total > 0 && it.award != "mastered" && it.fraction >= 0.5f && it.shown < it.total }
+        .sortedWith(compareByDescending<LibraryGame> { it.fraction }.thenBy { it.total - it.shown })
+        .take(10)
+
+    // Who you follow, most points first: active players tend to have fresh games.
+    val friends = followingJob.await().sortedByDescending { it.points + it.softPoints }.take(FRIENDS_CHECKED)
+    val friendGames = friends.map { f ->
+        async { runCatching { f.user to recentGames(f.user, 15) }.getOrNull() }
+    }.awaitAll().filterNotNull()
+
+    val byGame = linkedMapOf<Int, Pair<RecentGame, MutableList<String>>>()
+    friendGames.forEach { (friend, games) ->
+        games.filter { it.id !in mine && it.total > 0 }.forEach { g ->
+            byGame.getOrPut(g.id) { g.copy(earned = 0, earnedHc = 0) to mutableListOf() }.second.add(friend)
+        }
+    }
+    val friendsPlaying = byGame.values
+        .map { (g, who) -> FriendGame(g, who.distinct()) }
+        .sortedWith(
+            compareByDescending<FriendGame> { it.friends.size }
+                .thenByDescending { it.game.lastPlayed.orEmpty() }
+        )
+        .take(15)
+
+    val fromWant = wantJob.await().filter { it.achievements > 0 && it.id !in mine }.shuffled().take(5)
+
+    Suggestions(almostDone, friendsPlaying, fromWant)
+}
+
+/** Profile, recently played games and recent unlocks for another user. */
+suspend fun RaApi.userView(name: String): UserView = coroutineScope {
+    val profile = async { profile(name) }
+    val games = async { runCatching { recentGames(name, 20) }.getOrDefault(emptyList()) }
+    val unlocks = async { runCatching { recentUnlocks(name) }.getOrDefault(emptyList()) }
+    UserView(profile.await(), games.await(), unlocks.await())
+}

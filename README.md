@@ -11,9 +11,12 @@ the built-in buttons as well as touch.
 | Tab | Contents |
 | --- | --- |
 | **Playing** | Your 50 most recently played games, with progress bars |
+| **For You** | Suggestions: games you're close to mastering, games people you follow are playing, picks from Want to Play |
 | **Want to Play** | Your RetroAchievements Want to Play list, with achievement counts and points |
 | **Library** | Every game you've unlocked something in; sort by recent, progress or name |
 | **Unlocks** | Your unlocks from the last 30 days |
+| **Following** | Players you follow; open one to see their recent games, unlocks and per-game progress |
+| **Browse** | Pick a console and search its games with achievements |
 | **Profile** | Points, RetroPoints, member since, last seen (rich presence), sign out |
 
 Open any game to see its full achievement list: unlocked badges in color,
@@ -76,7 +79,9 @@ app/src/main/java/app/wasabi/
   ui/AppViewModel.kt     screen stack, loading, focus restore
   ui/Components.kt       theme, focusable rows, pills, formatting
   ui/LoginScreen.kt
-  ui/HomeScreen.kt       the five tabs
+  ui/HomeScreen.kt       tab strip, Playing, Want to Play, Library, Unlocks, Profile
+  ui/ExploreScreens.kt   For You, Following + user page, Browse + console search
+  data/Suggest.kt        how suggestions are picked
   ui/GameScreen.kt       achievement list
 ```
 

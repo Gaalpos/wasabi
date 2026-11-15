@@ -94,6 +94,7 @@ private fun GameHeader(vm: AppViewModel, g: GameDetail, stacked: Boolean) {
             }
             AwardTag(g.award)
         }
+        (vm.screen as? Screen.Game)?.user?.let { Tag("$it's progress", Palette.Soft) }
         if (g.total > 0) {
             ProgressLine(g.fraction, g.isHardcore)
             Text(

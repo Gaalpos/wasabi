@@ -22,10 +22,10 @@ class ApiException(message: String) : Exception(message)
  */
 class RaApi(val user: String, private val key: String) {
 
-    suspend fun profile(): Profile {
-        val j = obj("API_GetUserProfile.php", "u" to user)
+    suspend fun profile(of: String = user): Profile {
+        val j = obj("API_GetUserProfile.php", "u" to of)
         return Profile(
-            user = j.str("User") ?: user,
+            user = j.str("User") ?: of,
             avatarUrl = media(j.str("UserPic")),
             motto = j.str("Motto"),
             richPresence = j.str("RichPresenceMsg"),
@@ -36,8 +36,8 @@ class RaApi(val user: String, private val key: String) {
         )
     }
 
-    suspend fun recentGames(): List<RecentGame> =
-        arr("API_GetUserRecentlyPlayedGames.php", "u" to user, "c" to "50").objects().map { j ->
+    suspend fun recentGames(of: String = user, count: Int = 50): List<RecentGame> =
+        arr("API_GetUserRecentlyPlayedGames.php", "u" to of, "c" to "$count").objects().map { j ->
             RecentGame(
                 id = j.optInt("GameID"),
                 title = j.str("Title").orEmpty(),
@@ -100,8 +100,8 @@ class RaApi(val user: String, private val key: String) {
     }
 
     /** Unlocks from the last 30 days, newest first. */
-    suspend fun recentUnlocks(): List<Unlock> =
-        arr("API_GetUserRecentAchievements.php", "u" to user, "m" to "${60 * 24 * 30}").objects().map { j ->
+    suspend fun recentUnlocks(of: String = user): List<Unlock> =
+        arr("API_GetUserRecentAchievements.php", "u" to of, "m" to "${60 * 24 * 30}").objects().map { j ->
             Unlock(
                 achievementId = j.optInt("AchievementID"),
                 title = j.str("Title").orEmpty(),
@@ -116,8 +116,53 @@ class RaApi(val user: String, private val key: String) {
             )
         }.distinctBy { "${it.achievementId}:${it.date}" }
 
-    suspend fun game(id: Int): GameDetail {
-        val j = obj("API_GetGameInfoAndUserProgress.php", "g" to "$id", "u" to user, "a" to "1")
+    /** People the signed-in user follows (paged, 500 per call). */
+    suspend fun following(): List<FollowedUser> {
+        val out = mutableListOf<FollowedUser>()
+        var offset = 0
+        while (offset < 5000) {
+            val page = obj("API_GetUsersIFollow.php", "c" to "500", "o" to "$offset")
+            val results = page.optJSONArray("Results")?.objects().orEmpty()
+            results.mapTo(out) { j ->
+                val name = j.str("User").orEmpty()
+                FollowedUser(
+                    user = name,
+                    avatarUrl = "$MEDIA/UserPic/$name.png",
+                    points = j.optInt("Points"),
+                    softPoints = j.optInt("PointsSoftcore"),
+                    followsBack = j.opt("IsFollowingMe").let { it == true || it == 1 || it == "1" },
+                )
+            }
+            offset += results.size
+            if (results.size < 500 || offset >= page.optInt("Total")) break
+        }
+        return out.filter { it.user.isNotEmpty() }.distinctBy { it.user.lowercase() }
+    }
+
+    /** Game systems that are active on RetroAchievements, sorted by name. */
+    suspend fun consoles(): List<Console> =
+        arr("API_GetConsoleIDs.php", "a" to "1", "g" to "1").objects().map { j ->
+            Console(
+                id = j.optInt("ID"),
+                name = j.str("Name").orEmpty(),
+                iconUrl = media(j.str("IconURL")),
+            )
+        }.filter { it.id > 0 && it.name.isNotEmpty() }.distinctBy { it.id }.sortedBy { it.name.lowercase() }
+
+    /** Every game on a console that has achievements, sorted by title. */
+    suspend fun consoleGames(consoleId: Int): List<ConsoleGame> =
+        arr("API_GetGameList.php", "i" to "$consoleId", "f" to "1").objects().map { j ->
+            ConsoleGame(
+                id = j.optInt("ID"),
+                title = j.str("Title").orEmpty(),
+                iconUrl = media(j.str("ImageIcon")),
+                achievements = j.optInt("NumAchievements"),
+                points = j.optInt("Points"),
+            )
+        }.distinctBy { it.id }.sortedBy { it.title.lowercase() }
+
+    suspend fun game(id: Int, of: String = user): GameDetail {
+        val j = obj("API_GetGameInfoAndUserProgress.php", "g" to "$id", "u" to of, "a" to "1")
         // "Achievements" is an object keyed by id, or an empty array when there are none.
         val achObj = j.optJSONObject("Achievements")
         val achievements = achObj?.keys()?.asSequence()?.mapNotNull { achObj.optJSONObject(it) }?.map { a ->

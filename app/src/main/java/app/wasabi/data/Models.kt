@@ -102,3 +102,39 @@ data class GameDetail(
     val points get() = achievements.sumOf { it.points }
     val pointsEarned get() = achievements.filter { it.unlocked }.sumOf { it.points }
 }
+
+data class FollowedUser(
+    val user: String,
+    val avatarUrl: String?,
+    val points: Int,
+    val softPoints: Int,
+    val followsBack: Boolean,
+)
+
+/** Everything shown on another user's page. */
+data class UserView(
+    val profile: Profile,
+    val recentGames: List<RecentGame>,
+    val unlocks: List<Unlock>,
+)
+
+data class Console(val id: Int, val name: String, val iconUrl: String?)
+
+data class ConsoleGame(
+    val id: Int,
+    val title: String,
+    val iconUrl: String?,
+    val achievements: Int,
+    val points: Int,
+)
+
+/** A game people you follow have played recently and you haven't started. */
+data class FriendGame(val game: RecentGame, val friends: List<String>)
+
+data class Suggestions(
+    val almostDone: List<LibraryGame>,
+    val friendsPlaying: List<FriendGame>,
+    val fromWantToPlay: List<WantGame>,
+) {
+    val isEmpty get() = almostDone.isEmpty() && friendsPlaying.isEmpty() && fromWantToPlay.isEmpty()
+}

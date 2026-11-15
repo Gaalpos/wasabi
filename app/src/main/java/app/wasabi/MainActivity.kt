@@ -14,11 +14,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.wasabi.ui.AppViewModel
 import app.wasabi.ui.WasabiTheme
+import app.wasabi.ui.ConsoleScreen
 import app.wasabi.ui.GameScreen
 import app.wasabi.ui.HomeScreen
 import app.wasabi.ui.LoginScreen
 import app.wasabi.ui.Palette
 import app.wasabi.ui.Screen
+import app.wasabi.ui.UserScreen
 
 class MainActivity : ComponentActivity() {
     private val vm: AppViewModel by viewModels()
@@ -58,6 +60,8 @@ private fun App(vm: AppViewModel) {
             Screen.Login -> LoginScreen(vm)
             Screen.Home -> HomeScreen(vm)
             is Screen.Game -> GameScreen(vm, s)
+            is Screen.User -> UserScreen(vm, s)
+            is Screen.ConsoleGames -> ConsoleScreen(vm, s)
         }
     }
 }
