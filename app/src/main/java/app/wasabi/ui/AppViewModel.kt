@@ -342,16 +342,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         RaApi.cacheDir = app.cacheDir   // offline mode: saved answers live here
-        Palette.accent = AccentColor.entries.find { it.name == prefs.accent } ?: AccentColor.Wasabi
-        Controls.refresh = RefreshButton.entries.find { it.name == prefs.refreshButton } ?: RefreshButton.R2
-        prefs.tabs?.let { saved ->
-            val tabs = saved.split(',').mapNotNull { n -> HomeTab.entries.find { it.name == n } }.toSet()
-            if (tabs.isNotEmpty()) enabledTabs = tabs
-        }
-        prefs.tabOrder?.let { saved ->
-            val order = saved.split(',').mapNotNull { n -> HomeTab.entries.find { it.name == n && it != HomeTab.Settings } }.distinct()
-            tabOrder = order + tabOrder.filter { it !in order }
-        }
+        applySettings()
         tab = visibleTabs.first()
         val u = prefs.user
         val k = prefs.key
@@ -526,6 +517,61 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         while (stack.size > 1) back()
         selectTab(HomeTab.Settings)
         focusTarget = "upd"
+    }
+
+    /** Reads the device-only settings (at start, and after importing a backup). */
+    private fun applySettings(imported: Boolean = false) {
+        Palette.accent = AccentColor.entries.find { it.name == prefs.accent } ?: AccentColor.Wasabi
+        Controls.refresh = RefreshButton.entries.find { it.name == prefs.refreshButton } ?: RefreshButton.R2
+        enabledTabs = prefs.tabs
+            ?.split(',')?.mapNotNull { n -> HomeTab.entries.find { it.name == n } }?.toSet()
+            ?.takeIf { s -> s.any { it != HomeTab.Settings } }
+            ?: HomeTab.entries.toSet()
+        val default = HomeTab.entries.filter { it != HomeTab.Settings }
+        val order = prefs.tabOrder.orEmpty().split(',')
+            .mapNotNull { n -> default.find { it.name == n } }.distinct()
+        tabOrder = order + default.filter { it !in order }
+        hiddenPlaying = prefs.hiddenPlaying
+        hiddenBrowseLists = prefs.hiddenBrowseLists
+        favoriteConsoles = prefs.favoriteConsoles
+        // Declared further down, so only set after start-up.
+        if (imported) notificationsOn = prefs.notifications
+    }
+
+    /** Result of the last export or import, shown under Settings → Backup. */
+    var backupMessage by mutableStateOf<String?>(null); private set
+
+    fun exportBackup(uri: android.net.Uri) {
+        viewModelScope.launch {
+            backupMessage = try {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    getApplication<android.app.Application>().contentResolver.openOutputStream(uri, "wt")!!
+                        .use { it.write(prefs.exportBackup().toByteArray()) }
+                }
+                "Settings exported"
+            } catch (e: Exception) {
+                "Couldn't export: ${e.message ?: "unknown error"}"
+            }
+        }
+    }
+
+    fun importBackup(uri: android.net.Uri) {
+        viewModelScope.launch {
+            backupMessage = try {
+                val text = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    getApplication<android.app.Application>().contentResolver.openInputStream(uri)!!
+                        .use { it.readBytes().toString(Charsets.UTF_8) }
+                }
+                val n = prefs.importBackup(text)
+                applySettings(imported = true)
+                if (tab !in visibleTabs) tab = visibleTabs.first()
+                recent?.let { loadTab(HomeTab.Playing) }   // hidden games may have changed
+                app.wasabi.data.Background.schedule(getApplication())
+                "Imported $n " + if (n == 1) "setting" else "settings"
+            } catch (e: Exception) {
+                "Couldn't import: ${e.message ?: "not a Wasabi backup"}"
+            }
+        }
     }
 
     /** Background notifications for unlocks and friends' masteries. */
@@ -1251,7 +1297,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         HomeTab.Browse -> if (searchQuery.isNotBlank()) searchResults().map { "sg:${it.id}" }
             else listOf("list:MostPlayed", "list:Hacks") + visibleCommunity.map { "community:${it.name}" } + sortedConsoles().let { (fav, rest) -> (fav + rest).map { "c:${it.id}" } }
         HomeTab.Profile -> listOf("p:awards", "p:stats", "signout")
-        HomeTab.Settings -> listOf("upd", "web", "notif") + CommunityKind.entries.map { "bl:${it.name}" } + controlsHelp().indices.map { "ctl:$it" } + RefreshButton.entries.map { "rb:${it.name}" } + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
+        HomeTab.Settings -> listOf("upd", "web", "notif", "backup:export", "backup:import") + CommunityKind.entries.map { "bl:${it.name}" } + controlsHelp().indices.map { "ctl:$it" } + RefreshButton.entries.map { "rb:${it.name}" } + (if (hiddenPlaying.isNotEmpty()) listOf("hidden") else emptyList()) + AccentColor.entries.map { "ac:${it.name}" } +
             tabOrder.map { "tab:${it.name}" }
     }
 

@@ -58,6 +58,12 @@
                 android:resource="@xml/widget_unlocks_info" />
         </receiver>
 
+        <!-- Rows for the Recent achievements widget's scrolling list. -->
+        <service
+            android:name=".UnlocksWidgetService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

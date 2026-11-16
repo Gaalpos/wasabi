@@ -553,6 +553,49 @@ class Prefs(context: Context) {
     fun save(user: String, key: String) = sp.edit().putString("user", user).putString("key", key).apply()
     fun clearKey() = sp.edit().remove("key").apply()
 
+    /**
+     * Settings kept only on this device (nothing that comes from the API),
+     * for Settings → Backup. The account, API key and website sign-in are
+     * left out on purpose.
+     */
+    private val backupKeys = listOf(
+        "accent", "tabs", "tabOrder", "refreshButton", "favConsoles",
+        "hiddenPlaying", "hiddenBrowseLists", "notifications",
+    )
+
+    fun exportBackup(): String {
+        val settings = org.json.JSONObject()
+        backupKeys.forEach { k ->
+            when (val v = sp.all[k]) {
+                null -> Unit
+                is Set<*> -> settings.put(k, org.json.JSONArray(v.map { it.toString() }))
+                else -> settings.put(k, v)
+            }
+        }
+        return org.json.JSONObject()
+            .put("app", "wasabi").put("backup", 1).put("settings", settings)
+            .toString(2)
+    }
+
+    /** Restores a backup from [exportBackup]; returns how many settings it set. */
+    fun importBackup(text: String): Int {
+        val root = org.json.JSONObject(text)
+        require(root.optString("app") == "wasabi") { "This isn't a Wasabi backup" }
+        val settings = root.getJSONObject("settings")
+        val e = sp.edit()
+        var n = 0
+        backupKeys.filter { settings.has(it) }.forEach { k ->
+            when (val v = settings.get(k)) {
+                is org.json.JSONArray -> e.putStringSet(k, (0 until v.length()).map { v.getString(it) }.toSet())
+                is Boolean -> e.putBoolean(k, v)
+                else -> e.putString(k, v.toString())
+            }
+            n++
+        }
+        e.apply()
+        return n
+    }
+
     /** Name of the chosen accent color. */
     var accent: String?
         get() = sp.getString("accent", null)

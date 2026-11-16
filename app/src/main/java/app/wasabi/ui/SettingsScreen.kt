@@ -93,6 +93,35 @@ fun SettingsTab(vm: AppViewModel) {
                 Switch(vm.notificationsOn, dimmed = false)
             }
         }
+        fullWidthItem("h:backup") {
+            Heading("Backup", "Save the settings kept on this device (color, tabs, favorites, hidden games…) to a file, or load them back. Your account and API key aren't included.")
+        }
+        fullWidthItem("backup:export") {
+            val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+                uri?.let { vm.exportBackup(it) }
+            }
+            FocusRow("backup:export", vm, onClick = { save.launch("wasabi-settings.json") }) {
+                Column(Modifier.weight(1f)) {
+                    Text("Export settings", color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Press A to choose where to save the file", color = Palette.Dim, fontSize = 11.sp)
+                }
+            }
+        }
+        fullWidthItem("backup:import") {
+            val open = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                uri?.let { vm.importBackup(it) }
+            }
+            FocusRow("backup:import", vm, onClick = { open.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }) {
+                Column(Modifier.weight(1f)) {
+                    Text("Import settings", color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        vm.backupMessage ?: "Press A to pick a Wasabi backup file",
+                        color = if (vm.backupMessage?.startsWith("Couldn") == true) Palette.Error else Palette.Dim,
+                        fontSize = 11.sp,
+                    )
+                }
+            }
+        }
         fullWidthItem("h:controls") { Heading("Controls", "What each button does") }
         controlsHelp().forEachIndexed { i, (button, what) ->
             item(key = "ctl:$i") {
