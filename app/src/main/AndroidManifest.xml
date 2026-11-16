@@ -58,9 +58,57 @@
                 android:resource="@xml/widget_unlocks_info" />
         </receiver>
 
-        <!-- Rows for the Recent achievements widget's scrolling list. -->
+        <receiver
+            android:name=".PlayingWidget"
+            android:exported="false"
+            android:label="@string/widget_playing_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_playing_info" />
+        </receiver>
+
+        <receiver
+            android:name=".WantWidget"
+            android:exported="false"
+            android:label="@string/widget_want_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_want_info" />
+        </receiver>
+
+        <receiver
+            android:name=".FriendsWidget"
+            android:exported="false"
+            android:label="@string/widget_friends_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_friends_info" />
+        </receiver>
+
+        <receiver
+            android:name=".WeeklyWidget"
+            android:exported="false"
+            android:label="@string/widget_weekly_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_weekly_info" />
+        </receiver>
+
+        <!-- Rows for the list widgets' scrolling lists. -->
         <service
-            android:name=".UnlocksWidgetService"
+            android:name=".WidgetListService"
             android:exported="false"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
 

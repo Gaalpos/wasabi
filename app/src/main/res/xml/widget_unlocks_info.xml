@@ -2,7 +2,7 @@
 <!-- Updated by Wasabi itself (app and background check), not on a timer. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_unlocks_description"
-    android:initialLayout="@layout/widget_unlocks"
+    android:initialLayout="@layout/widget_list"
     android:minWidth="180dp"
     android:minHeight="110dp"
     android:minResizeWidth="150dp"

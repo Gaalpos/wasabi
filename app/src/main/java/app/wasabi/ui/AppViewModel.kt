@@ -1,5 +1,9 @@
 package app.wasabi.ui
 
+import app.wasabi.WidgetKind
+import app.wasabi.WidgetRow
+import app.wasabi.WidgetRows
+import app.wasabi.Widgets
 import android.app.Application
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.getValue
@@ -399,7 +403,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         prefs.clearKey()
         prefs.saveWidget(null, -1, null)
         app.wasabi.WasabiWidget.refresh(getApplication())
-        app.wasabi.UnlocksWidget.clear(getApplication())
+        Widgets.clear(getApplication())
         app.wasabi.data.Background.schedule(getApplication())
         api = null
         profile = Load.Loading
@@ -1214,6 +1218,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         lastHidden = list[i]
         hiddenPlaying = hiddenPlaying + (id to list[i].lastPlayed.orEmpty())
         prefs.hiddenPlaying = hiddenPlaying
+        playingWidget()
         val next = list.getOrNull(i + 1) ?: list.getOrNull(i - 1)
         focusTarget = next?.let { "g:${it.id}" } ?: "undo"
     }
@@ -1222,14 +1227,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val g = lastHidden ?: return
         hiddenPlaying = hiddenPlaying - g.id
         prefs.hiddenPlaying = hiddenPlaying
+        playingWidget()
         lastHidden = null
         focusTarget = "g:${g.id}"
+    }
+
+    private fun playingWidget() {
+        val list = (recent as? Load.Ok)?.data ?: return
+        widget(WidgetKind.Playing) { WidgetRows.playing(list, hiddenPlaying) }
     }
 
     /** Brings every hidden game back to Playing. */
     fun showHiddenPlaying() {
         hiddenPlaying = emptyMap()
         prefs.hiddenPlaying = hiddenPlaying
+        playingWidget()
         lastHidden = null
     }
 
@@ -1368,24 +1380,40 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun loadTab(t: HomeTab) = when (t) {
-        HomeTab.Playing -> launchLoad("recent", { recent = it }, { reconcileHidden(); restoreFocus(t) }) { recentGames() }
+        HomeTab.Playing -> launchLoad("recent", { recent = it }, { list ->
+            reconcileHidden()
+            restoreFocus(t)
+            widget(WidgetKind.Playing) { WidgetRows.playing(list, hiddenPlaying) }
+        }) { recentGames() }
         HomeTab.ForYou -> {
-            launchLoad("weekly", { weekly = it }) { achievementOfTheWeek() }
+            launchLoad("weekly", { weekly = it }, { w -> widget(WidgetKind.Weekly) { WidgetRows.weekly(w) } }) { achievementOfTheWeek() }
             launchLoad("suggested", { suggested = it }, { restoreFocus(t) }) { suggestions() }
         }
-        HomeTab.WantToPlay -> launchLoad("want", { wantToPlay = it }, { restoreFocus(t) }) { wantToPlay() }
+        HomeTab.WantToPlay -> launchLoad("want", { wantToPlay = it }, { list ->
+            restoreFocus(t)
+            widget(WidgetKind.WantToPlay) { WidgetRows.want(list) }
+        }) { wantToPlay() }
         HomeTab.Library -> launchLoad("library", { library = it }, { restoreFocus(t) }) { library() }
         HomeTab.Unlocks -> launchLoad("unlocks", { unlocks = it }, { list ->
             restoreFocus(t)
-            viewModelScope.launch { app.wasabi.UnlocksWidget.update(getApplication(), list) }
+            widget(WidgetKind.Unlocks) { WidgetRows.unlocks(list) }
         }) { recentUnlocks() }
         HomeTab.Following -> launchLoad("following", { following = it }, { list ->
             prefs.followingNames = list.map { it.user.lowercase() }.toSet()   // for mastery notifications
             restoreFocus(t)
+            widget(WidgetKind.Friends) { WidgetRows.friends(list, prefs.widgetUser, prefs.widgetPoints) }
         }) { following() }
         HomeTab.Browse -> launchLoad("consoles", { consoles = it }, { restoreFocus(t) }) { consoles() }
         HomeTab.Profile -> loadProfile()
         HomeTab.Settings -> checkForUpdates(manual = true)
+    }
+
+    /** Updates a home screen list widget, if one is placed, from data the app just loaded. */
+    private fun widget(kind: WidgetKind, rows: () -> List<WidgetRow>) {
+        val app = getApplication<android.app.Application>()
+        if (!Widgets.placed(app, kind)) return
+        val list = rows()
+        viewModelScope.launch { Widgets.save(app, kind, list) }
     }
 
     private fun loadProfile() = launchLoad("profile", { profile = it }, { p ->

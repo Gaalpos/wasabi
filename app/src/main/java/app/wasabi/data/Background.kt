@@ -20,7 +20,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import app.wasabi.MainActivity
 import app.wasabi.R
-import app.wasabi.UnlocksWidget
+import app.wasabi.Widgets
 import app.wasabi.WasabiWidget
 import java.util.concurrent.TimeUnit
 
@@ -106,10 +106,8 @@ class CheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
             prefs.saveWidget(p.user, p.points, p.richPresence)
             WasabiWidget.refresh(applicationContext)
         }
-        // Recent achievements widget.
-        if (UnlocksWidget.placed(applicationContext)) {
-            runCatching { api.recentUnlocks() }.getOrNull()?.let { UnlocksWidget.update(applicationContext, it) }
-        }
+        // List widgets (recent achievements, playing, Want to Play, friends, weekly).
+        Widgets.updateAll(applicationContext, api)
         if (!prefs.notifications) return Result.success()
 
         // Your new unlocks (last day). The first run only sets the starting point.

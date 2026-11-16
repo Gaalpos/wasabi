@@ -2,6 +2,14 @@
     <string name="app_name">Wasabi</string>
     <string name="widget_unlocks_title">Recent achievements</string>
     <string name="widget_unlocks_description">The achievements you unlocked most recently</string>
+    <string name="widget_playing_title">Playing</string>
+    <string name="widget_playing_description">The games you played most recently, with your progress</string>
+    <string name="widget_want_title">Want to Play</string>
+    <string name="widget_want_description">Your RetroAchievements Want to Play list</string>
+    <string name="widget_friends_title">Friends leaderboard</string>
+    <string name="widget_friends_description">You and the people you follow, ranked by points</string>
+    <string name="widget_weekly_title">Achievement of the Week</string>
+    <string name="widget_weekly_description">This week\'s featured achievement</string>
     <string name="hardcore_tag">HARDCORE</string>
     <string name="widget_description">Your RetroAchievements points and what you\'re playing</string>
 </resources>

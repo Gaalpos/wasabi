@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Recent achievements widget: a scrolling list filled by UnlocksWidgetService. -->
+<!-- Shared by the list widgets (see Widgets.kt): a header and a scrolling list. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/u_root"
     android:layout_width="match_parent"
@@ -22,6 +22,7 @@
             android:src="@mipmap/ic_launcher" />
 
         <TextView
+            android:id="@+id/u_head"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"

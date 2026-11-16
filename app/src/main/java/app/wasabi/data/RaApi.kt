@@ -646,10 +646,9 @@ class Prefs(context: Context) {
         get() = sp.getStringSet("followingNames", emptySet()).orEmpty()
         set(v) = sp.edit().putStringSet("followingNames", v).apply()
 
-    /** Recent achievements widget: the latest unlocks as a JSON array. */
-    var widgetUnlocks: String?
-        get() = sp.getString("widgetUnlocks", null)
-        set(v) = sp.edit().putString("widgetUnlocks", v).apply()
+    /** List widgets: each one's rows as a JSON array (see Widgets.kt). */
+    fun widgetData(key: String): String? = sp.getString(key, null)
+    fun setWidgetData(key: String, v: String?) = sp.edit().putString(key, v).remove("widgetUnlocks").apply()
 
     /** Home screen widget: placed or not, and what it shows. */
     var widgetPlaced: Boolean
