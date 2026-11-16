@@ -26,7 +26,7 @@ class WasabiWidget : AppWidgetProvider() {
     }
 
     override fun onDisabled(context: Context) {
-        Prefs(context).widgetPlaced = false
+        Prefs(context).widgetPlaced = UnlocksWidget.placed(context)
         Background.schedule(context)
     }
 

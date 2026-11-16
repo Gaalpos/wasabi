@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">Wasabi</string>
+    <string name="widget_unlocks_title">Recent achievements</string>
+    <string name="widget_unlocks_description">The achievements you unlocked most recently</string>
+    <string name="hardcore_tag">HARDCORE</string>
     <string name="widget_description">Your RetroAchievements points and what you\'re playing</string>
 </resources>

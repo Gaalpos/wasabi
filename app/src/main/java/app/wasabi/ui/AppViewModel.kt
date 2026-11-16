@@ -408,6 +408,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         prefs.clearKey()
         prefs.saveWidget(null, -1, null)
         app.wasabi.WasabiWidget.refresh(getApplication())
+        app.wasabi.UnlocksWidget.clear(getApplication())
         app.wasabi.data.Background.schedule(getApplication())
         api = null
         profile = Load.Loading
@@ -1328,7 +1329,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         HomeTab.WantToPlay -> launchLoad("want", { wantToPlay = it }, { restoreFocus(t) }) { wantToPlay() }
         HomeTab.Library -> launchLoad("library", { library = it }, { restoreFocus(t) }) { library() }
-        HomeTab.Unlocks -> launchLoad("unlocks", { unlocks = it }, { restoreFocus(t) }) { recentUnlocks() }
+        HomeTab.Unlocks -> launchLoad("unlocks", { unlocks = it }, { list ->
+            restoreFocus(t)
+            viewModelScope.launch { app.wasabi.UnlocksWidget.update(getApplication(), list) }
+        }) { recentUnlocks() }
         HomeTab.Following -> launchLoad("following", { following = it }, { list ->
             prefs.followingNames = list.map { it.user.lowercase() }.toSet()   // for mastery notifications
             restoreFocus(t)

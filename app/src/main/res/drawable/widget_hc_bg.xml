@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tint behind the widget's HARDCORE tag (accent at ~16%). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#299DC93B" />
+    <corners android:radius="4dp" />
+</shape>

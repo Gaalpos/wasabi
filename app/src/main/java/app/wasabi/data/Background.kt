@@ -20,6 +20,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import app.wasabi.MainActivity
 import app.wasabi.R
+import app.wasabi.UnlocksWidget
 import app.wasabi.WasabiWidget
 import java.util.concurrent.TimeUnit
 
@@ -45,6 +46,15 @@ object Background {
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
         wm.enqueueUniquePeriodicWork(WORK, ExistingPeriodicWorkPolicy.KEEP, request)
+    }
+
+    /** Runs one check now (e.g. right after a widget is placed, so it fills in). */
+    fun runNow(context: Context) {
+        if (Prefs(context).key == null) return
+        val request = androidx.work.OneTimeWorkRequestBuilder<CheckWorker>()
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork("$WORK-now", androidx.work.ExistingWorkPolicy.REPLACE, request)
     }
 
     fun ensureChannel(context: Context) {
@@ -95,6 +105,10 @@ class CheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(
         runCatching { api.profile() }.getOrNull()?.let { p ->
             prefs.saveWidget(p.user, p.points, p.richPresence)
             WasabiWidget.refresh(applicationContext)
+        }
+        // Recent achievements widget.
+        if (UnlocksWidget.placed(applicationContext)) {
+            runCatching { api.recentUnlocks() }.getOrNull()?.let { UnlocksWidget.update(applicationContext, it) }
         }
         if (!prefs.notifications) return Result.success()
 
