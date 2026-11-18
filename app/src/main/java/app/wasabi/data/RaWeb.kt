@@ -94,7 +94,7 @@ object RaWeb {
                   list.push({ id: g.id, title: g.title || '', badgeUrl: g.badgeUrl || null,
                               system: (g.system && g.system.name) || null,
                               achievements: g.achievementsPublished || 0, points: g.pointsTotal || 0,
-                              released: g.releasedAt || null });
+                              released: g.releasedAt || null, beat: (g.medianTimeToBeatHardcore === undefined) ? null : ((g.timesBeatenHardcore || 0) >= 5 ? (g.medianTimeToBeatHardcore || 0) : 0) });
                 });
                 if (!j.lastPage || page >= j.lastPage) break;
               }
@@ -130,7 +130,7 @@ object RaWeb {
                 all.push({ id: g.id, title: g.title || '', badgeUrl: g.badgeUrl || null,
                            system: (g.system && g.system.name) || null,
                            achievements: g.achievementsPublished || 0, points: g.pointsTotal || 0,
-                           players: g.playersTotal || 0 });
+                           players: g.playersTotal || 0, beat: (g.medianTimeToBeatHardcore === undefined) ? null : ((g.timesBeatenHardcore || 0) >= 5 ? (g.medianTimeToBeatHardcore || 0) : 0) });
               });
               if (!j.lastPage || page >= j.lastPage) break;
             }

@@ -187,6 +187,8 @@ data class RelatedGame(
     val points: Int,
     val released: String? = null,
     val players: Int = 0,
+    /** Median time to beat in seconds (0 = not enough data), or null if the list didn't say. */
+    val beatTime: Int? = null,
 )
 
 /** Series, hubs and similar games for one game (website game page + API v2). */

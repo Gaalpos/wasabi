@@ -117,6 +117,7 @@ private fun GameHeader(vm: AppViewModel, screen: Screen.Game, g: GameDetail) {
                     AwardTag(g.award)
                     screen.user?.let { Tag("$it's progress", Palette.Soft) }
                 }
+                beatLabel(vm, g.id)?.let { Text(it, color = Palette.Accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
             }
         }
         // Want to Play adds or removes the game through the website session in
@@ -362,7 +363,7 @@ fun RelatedGameRow(vm: AppViewModel, key: String, r: RelatedGame, current: Boole
                 )
                 if (current) Tag("This game", Palette.Accent)
             }
-            val sub = listOfNotNull(r.console, r.released?.take(4)).joinToString(" · ")
+            val sub = listOfNotNull(r.console, r.released?.take(4), beatLabel(vm, r.id)).joinToString(" · ")
             if (sub.isNotEmpty()) Text(sub, color = Palette.Dim, fontSize = 11.sp)
             Text(
                 (if (r.achievements > 0) "${num(r.achievements)} achievements · ${num(r.points)} pts" else "No achievements yet") +

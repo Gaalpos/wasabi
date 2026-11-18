@@ -326,7 +326,7 @@ fun WantRow(vm: AppViewModel, key: String, g: WantGame) {
                 color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
-            Text(g.console, color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(listOfNotNull(g.console, beatLabel(vm, g.id)).joinToString(" · "), color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 if (g.achievements > 0) "${num(g.achievements)} achievements · ${num(g.points)} pts" else "No achievements yet",
                 color = if (g.achievements > 0) Palette.Accent else Palette.Faint,
@@ -390,7 +390,8 @@ fun GameRow(
                 )
                 AwardTag(award)
             }
-            Text(sub, color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val beat = key.substringAfterLast(':').toIntOrNull()?.let { beatLabel(vm, it) }
+            Text(listOfNotNull(sub, beat).joinToString(" · "), color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(4.dp))
             if (progress.total > 0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

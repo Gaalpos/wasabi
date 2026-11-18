@@ -1,5 +1,6 @@
 package app.wasabi.ui
 
+import kotlinx.coroutines.sync.withPermit
 import app.wasabi.WidgetKind
 import app.wasabi.WidgetRow
 import app.wasabi.WidgetRows
@@ -476,6 +477,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         pageCallbacks[job.nonce] = { json ->
             st.extras = runCatching { Load.Ok(RaApi.parseExtras(json!!)) }
                 .getOrElse { Load.Err("Couldn't read this game's page on retroachievements.org.") }
+            (st.extras as? Load.Ok)?.data?.seriesGames?.let { rememberBeatTimes(it) }
             when (val e = st.extras) {
                 is Load.Ok -> st.series = when {
                     e.data.series == null -> Load.Ok(emptyList())
@@ -920,6 +922,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val nonce = System.nanoTime().toString()
         pageCallbacks[nonce] = { json ->
             val parsed = json?.let { runCatching { RaApi.parseGameList(it) }.getOrNull() }
+            parsed?.first?.let { rememberBeatTimes(it) }
             gameList = when {
                 parsed == null -> Load.Err("Couldn't read the list from retroachievements.org. Press ${Controls.refresh.label} to retry.")
                 parsed.first != null -> Load.Ok(parsed.first!!)
@@ -957,6 +960,83 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Player counts of a system's game, if loaded. */
+    // ---- time to beat ----
+
+    /**
+     * Median time to beat per game (seconds; 0 = not enough data), shown on
+     * the game page and in game lists. Filled from the website's lists when
+     * they include it, otherwise fetched per game (two at a time) and kept
+     * on the device for a week.
+     */
+    val beatTimes = androidx.compose.runtime.mutableStateMapOf<Int, Int>()
+    private val beatFetchedDay = mutableMapOf<Int, Long>()
+    private val beatPending = mutableSetOf<Int>()
+    private val beatGate = kotlinx.coroutines.sync.Semaphore(2)
+    private val beatFile get() = java.io.File(getApplication<Application>().filesDir, "beat_times.json")
+    private fun today() = System.currentTimeMillis() / 86_400_000L
+
+    private var beatLoaded = false
+
+    /** Reads the saved times once (not in init: these properties are declared after it). */
+    private fun loadBeatTimes() {
+        if (beatLoaded) return
+        beatLoaded = true
+        runCatching {
+            val j = org.json.JSONObject(beatFile.readText())
+            val now = today()
+            j.keys().forEach { k ->
+                val a = j.getJSONArray(k)
+                val day = a.getLong(1)
+                if (now - day <= 7) {
+                    beatTimes[k.toInt()] = a.getInt(0)
+                    beatFetchedDay[k.toInt()] = day
+                }
+            }
+        }
+    }
+
+    private fun saveBeatTimes() {
+        val snapshot = beatTimes.toMap()
+        val days = beatFetchedDay.toMap()
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            runCatching {
+                val j = org.json.JSONObject()
+                snapshot.forEach { (id, s) -> j.put("$id", org.json.JSONArray().put(s).put(days[id] ?: today())) }
+                beatFile.writeText(j.toString())
+            }
+        }
+    }
+
+    /** Records times that came with a website list (no request needed). */
+    fun rememberBeatTimes(games: List<RelatedGame>) {
+        loadBeatTimes()
+        var changed = false
+        games.forEach { g ->
+            val t = g.beatTime ?: return@forEach
+            if (beatTimes[g.id] != t) { beatTimes[g.id] = t; beatFetchedDay[g.id] = today(); changed = true }
+        }
+        if (changed) saveBeatTimes()
+    }
+
+    /** Loads [id]'s time to beat if it isn't known yet. */
+    fun ensureBeatTime(id: Int) {
+        loadBeatTimes()
+        if (id <= 0 || id in beatTimes || !beatPending.add(id)) return
+        val a = api ?: return
+        viewModelScope.launch {
+            try {
+                val t = beatGate.withPermit { a.beatTime(id) }
+                beatTimes[id] = t
+                beatFetchedDay[id] = today()
+                saveBeatTimes()
+            } catch (_: Exception) {
+                // Try again next time the game shows up.
+            } finally {
+                beatPending.remove(id)
+            }
+        }
+    }
+
     fun consolePlayersOf(id: Int): Int? = (consolePlayers as? Load.Ok)?.data?.get(id)
 
     /**
@@ -973,6 +1053,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val nonce = System.nanoTime().toString()
         pageCallbacks[nonce] = { json ->
             val parsed = json?.let { runCatching { RaApi.parseGameList(it) }.getOrNull() }
+            parsed?.first?.let { rememberBeatTimes(it) }
             if (consolePlayersFor == s.id) {
                 consolePlayers = when {
                     parsed?.first != null -> Load.Ok(parsed.first!!.associate { it.id to it.players })

@@ -339,6 +339,21 @@ class RaApi(val user: String, private val key: String) {
         )
     }
 
+    /**
+     * Median time to beat [gameId] in seconds, hardcore first, or 0 when too
+     * few players have beaten it (the website needs at least 5, too).
+     */
+    suspend fun beatTime(gameId: Int): Int {
+        val j = obj("API_GetGameProgression.php", "i" to "$gameId")
+        val hc = j.optInt("MedianTimeToBeatHardcore")
+        val sc = j.optInt("MedianTimeToBeat")
+        return when {
+            hc > 0 && j.optInt("TimesUsedInHardcoreBeatMedian") >= 5 -> hc
+            sc > 0 && j.optInt("TimesUsedInBeatMedian") >= 5 -> sc
+            else -> 0
+        }
+    }
+
     // ---- community ----
 
     suspend fun achievementOfTheWeek(): WeeklyAchievement {
@@ -485,6 +500,7 @@ class RaApi(val user: String, private val key: String) {
                     achievements = g.optInt("achievements"),
                     points = g.optInt("points"),
                     players = g.optInt("players"),
+                    beatTime = if (g.isNull("beat")) null else g.optInt("beat"),
                 )
             }.filter { it.id > 0 }.distinctBy { it.id } to null
         }
@@ -517,6 +533,7 @@ class RaApi(val user: String, private val key: String) {
                         achievements = g.optInt("achievements"),
                         points = g.optInt("points"),
                         released = g.str("released"),
+                        beatTime = if (g.isNull("beat")) null else g.optInt("beat"),
                     )
                 }?.filter { it.id > 0 },
                 seriesStatus = if (j.has("seriesStatus")) j.optInt("seriesStatus") else null,

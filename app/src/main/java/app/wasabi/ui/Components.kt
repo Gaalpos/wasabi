@@ -608,3 +608,25 @@ fun HardcoreBadge(modifier: Modifier = Modifier) {
             .padding(horizontal = 5.dp, vertical = 1.dp),
     )
 }
+
+/** "~12h 30m" for a time to beat in seconds. */
+fun beatText(seconds: Int): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    return when {
+        h >= 10 -> "~${h}h"
+        h > 0 -> if (m > 0) "~${h}h ${m}m" else "~${h}h"
+        else -> "~${maxOf(m, 1)}m"
+    }
+}
+
+/**
+ * The game's time to beat ("~12h to beat"), or null while unknown or when
+ * there isn't enough data. Loads it if needed.
+ */
+@Composable
+fun beatLabel(vm: AppViewModel, gameId: Int): String? {
+    LaunchedEffect(gameId) { vm.ensureBeatTime(gameId) }
+    val t = vm.beatTimes[gameId] ?: return null
+    return if (t > 0) beatText(t) + " to beat" else null
+}

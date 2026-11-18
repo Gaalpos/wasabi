@@ -127,7 +127,7 @@ private fun FriendGameRow(vm: AppViewModel, f: FriendGame) {
         Thumb(g.iconUrl, 44.dp)
         Column(Modifier.weight(1f)) {
             Text(g.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("${g.console} · ${num(g.total)} achievements", color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(listOfNotNull(g.console, "${num(g.total)} achievements", beatLabel(vm, g.id)).joinToString(" · "), color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("Played by $who", color = Palette.Accent, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         WantToggle(vm, g.id)
@@ -468,7 +468,8 @@ private fun ConsoleGameRow(vm: AppViewModel, g: ConsoleGame) {
             Text(g.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             val players = vm.consolePlayersOf(g.id)
             Text(
-                "${num(g.achievements)} achievements · ${num(g.points)} pts" + if (players != null && players > 0) " · ${num(players)} players" else "",
+                "${num(g.achievements)} achievements · ${num(g.points)} pts" + (if (players != null && players > 0) " · ${num(players)} players" else "") +
+                    (beatLabel(vm, g.id)?.let { " · $it" } ?: ""),
                 color = Palette.Dim, fontSize = 11.sp,
             )
         }
@@ -512,7 +513,7 @@ private fun SearchResults(vm: AppViewModel) {
                                     Thumb(g.iconUrl, 44.dp)
                                     Column(Modifier.weight(1f)) {
                                         Text(g.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                        Text(g.console, color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(listOfNotNull(g.console, beatLabel(vm, g.id)).joinToString(" · "), color = Palette.Dim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text("${num(g.achievements)} achievements · ${num(g.points)} pts", color = Palette.Faint, fontSize = 11.sp)
                                     }
                                     WantToggle(vm, g.id)
