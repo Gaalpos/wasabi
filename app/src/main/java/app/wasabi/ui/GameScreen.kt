@@ -215,6 +215,11 @@ private fun AchievementsTab(vm: AppViewModel, st: GameState, g: GameDetail) {
         fullWidthItem("filter") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Pill("Show: ${st.filter.label}", onClick = { vm.option() }, compact = true, icon = Icons.AutoMirrored.Rounded.List, focusKey = "filter", vm = vm)
+                Spacer(Modifier.width(6.dp))
+                Pill(
+                    "Sort: ${vm.achSort.label}", onClick = { vm.toggleAchSort() }, compact = true,
+                    selected = vm.achSort == AchSort.Unlocked, focusKey = "achsort", vm = vm,
+                )
                 Spacer(Modifier.weight(1f))
                 Text("${num(list.size)} shown", color = Palette.Dim, fontSize = 12.sp)
             }

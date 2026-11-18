@@ -177,6 +177,9 @@ enum class SignOutKind { App, Website }
 
 enum class AchFilter(val label: String) { All("All"), Locked("Locked"), Unlocked("Unlocked"), Missable("Missable") }
 
+/** Achievement order on a game: the set's own order, or newest unlock first. */
+enum class AchSort(val label: String) { Default("Default"), Unlocked("Date unlocked") }
+
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = Prefs(app)
     private val catalogStore = Catalog(app)
@@ -539,6 +542,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         tabOrder = order + default.filter { it !in order }
         hiddenPlaying = prefs.hiddenPlaying
         hiddenBrowseLists = prefs.hiddenBrowseLists
+        if (imported) achSort = AchSort.entries.find { it.name == prefs.achSort } ?: AchSort.Default
         favoriteConsoles = prefs.favoriteConsoles
         // Declared further down, so only set after start-up.
         if (imported) notificationsOn = prefs.notifications
@@ -1263,6 +1267,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             AchFilter.Unlocked -> it.unlocked
             AchFilter.Missable -> it.missable
         }
+    }.let { list ->
+        // Newest unlock first; locked ones keep the set's order after them.
+        if (achSort == AchSort.Unlocked) list.sortedByDescending { it.unlockedAt.orEmpty() } else list
+    }
+
+    /** How achievements are ordered on every game (remembered). */
+    var achSort by mutableStateOf(AchSort.entries.find { it.name == prefs.achSort } ?: AchSort.Default); private set
+
+    fun toggleAchSort() {
+        achSort = if (achSort == AchSort.Default) AchSort.Unlocked else AchSort.Default
+        prefs.achSort = achSort.name
+        currentGame?.let { st -> viewModelScope.launch { st.listStates.getValue(GameTab.Achievements).scrollToItem(0) } }
+        focusTarget = "achsort"
     }
 
     /** Recently played games, minus the ones hidden in Wasabi. */
@@ -1401,7 +1418,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val st = gameState(s)
             val g = (st.detail as? Load.Ok)?.data
             listOf("want") + when (st.tab) {
-                GameTab.Achievements -> listOf("filter") + filteredAchievements(st).map { "a:${it.id}" }
+                GameTab.Achievements -> listOf("filter", "achsort") + filteredAchievements(st).map { "a:${it.id}" }
                 GameTab.Info -> g?.let { d -> d.images.indices.map { "img:$it" } + gameFacts(d, (st.extras as? Load.Ok)?.data).indices.map { "fact:$it" } }.orEmpty()
                 GameTab.Series -> (st.series as? Load.Ok)?.data.orEmpty().map { "ser:${it.id}" } +
                     (st.extras as? Load.Ok)?.data?.hubs.orEmpty().map { "hub:${it.id}" }

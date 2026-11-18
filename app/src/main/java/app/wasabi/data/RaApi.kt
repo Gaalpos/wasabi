@@ -577,7 +577,7 @@ class Prefs(context: Context) {
      */
     private val backupKeys = listOf(
         "accent", "tabs", "tabOrder", "refreshButton", "favConsoles",
-        "hiddenPlaying", "hiddenBrowseLists", "notifications",
+        "hiddenPlaying", "hiddenBrowseLists", "notifications", "achSort",
     )
 
     fun exportBackup(): String {
@@ -622,6 +622,11 @@ class Prefs(context: Context) {
     var webSignedIn: Boolean
         get() = sp.getBoolean("webSignedIn", false)
         set(v) = sp.edit().putBoolean("webSignedIn", v).apply()
+
+    /** Achievement order on game pages (AchSort name). */
+    var achSort: String?
+        get() = sp.getString("achSort", null)
+        set(v) = sp.edit().putString("achSort", v).apply()
 
     /** Home tab order as comma-separated names; null means the default order. */
     var tabOrder: String?
